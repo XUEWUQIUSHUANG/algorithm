@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>哈夫曼编码</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 380px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"] {
+            width: 460px;
+            max-width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 64px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #queue-info {
+            font-size: 13px;
+            color: #444;
+            min-height: 24px;
+            margin-bottom: 8px;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 42px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color 220ms ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        .edge {
+            stroke: #8d99a6;
+            stroke-width: 2;
+            transition: stroke 260ms ease;
+        }
+
+        .node-circle {
+            stroke: #fff;
+            stroke-width: 2;
+            transition: fill 260ms ease;
+        }
+
+        .node-weight {
+            fill: #fff;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-weight: 600;
+        }
+
+        .node-label {
+            fill: #2c3e50;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .edge-bit {
+            fill: #34495e;
+            font-size: 12px;
+            font-weight: 600;
+            text-anchor: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>哈夫曼编码</h1>
+
+    <div class="panel" id="input-row">
+        <label>
+            字符频率（格式：A:5,B:9,C:12,D:13,E:16,F:45）：
+            <input id="input-data" type="text" value="A:5,B:9,C:12,D:13,E:16,F:45" />
+        </label>
+        <button id="btn-apply">应用数据</button>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">
+            速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：每轮取最小权值的两棵树，合并成新树后放回集合。</div>
+            <div id="queue-info">当前集合：-</div>
+            <div id="result">编码结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:steelblue"></span>叶子结点</span>
+                <span class="tag"><span class="swatch" style="background:#f39c12"></span>内部结点</span>
+                <span class="tag"><span class="swatch" style="background:#e74c3c"></span>当前选中最小两结点</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>本轮新合并结点</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <svg id="chart" width="900" height="560" style="border: 0;"></svg>
+        </div>
+    </div>
+
+    <script>
+        const codeLines = [
+            '初始化最小优先队列 Q（每个字符是一个叶子结点）',
+            'while (Q.size > 1) {',
+            '  x = extractMin(Q)',
+            '  y = extractMin(Q)',
+            '  z = new Node(x.weight + y.weight)',
+            '  z.left = x; z.right = y',
+            '  insert(Q, z)',
+            '}',
+            'root = extractMin(Q)'
+        ];
+
+        const colorLeaf = 'steelblue';
+        const colorInner = '#f39c12';
+        const colorPick = '#e74c3c';
+        const colorNew = '#2ecc71';
+
+        const svg = d3.select('#chart');
+        const canvasHeight = +svg.attr('height');
+        const g = svg.append('g').attr('transform', 'translate(20,20)');
+        const animEase = d3.easeSinOut;
+
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+        let leavesData = [];
+        let currentForestLayer = null;
+
+        function initCodeBox() {
+            const codeEl = document.getElementById('code-content');
+            codeEl.innerHTML = '';
+            codeLines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = String(idx);
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+        function highlightCode(lineList) {
+            const lines = document.querySelectorAll('.code-line');
+            lines.forEach(el => el.classList.remove('code-active'));
+            (lineList || []).forEach(idx => {
+                const target = document.querySelector(`.code-line[data-line="${idx}"]`);
+                if (target) target.classList.add('code-active');
+            });
+        }
+
+        function parseInput(text) {
+            const normalized = (text || '').replace(/，/g, ',').trim();
+            const parts = normalized.split(',').map(s => s.trim()).filter(Boolean);
+            const result = [];
+            const seen = new Set();
+            for (const item of parts) {
+                const pair = item.split(':');
+                if (pair.length !== 2) return null;
+                const ch = pair[0].trim();
+                const weight = Number(pair[1].trim());
+                if (!ch || !Number.isFinite(weight) || weight <= 0) return null;
+                if (seen.has(ch)) return null;
+                seen.add(ch);
+                result.push({ char: ch, weight: Math.floor(weight) });
+            }
+            if (result.length < 2) return null;
+            return result;
+        }
+
+        function snapshotState(nodes, activeIds, extra) {
+            const nodesCopy = {};
+            Object.keys(nodes).forEach(id => {
+                nodesCopy[id] = { ...nodes[id] };
+            });
+            return {
+                nodes: nodesCopy,
+                activeIds: activeIds.slice(),
+                ...extra
+            };
+        }
+
+        function buildCodes(nodes, rootId) {
+            const output = [];
+            function dfs(nodeId, path) {
+                const node = nodes[nodeId];
+                if (!node.left && !node.right) {
+                    output.push({ char: node.label, weight: node.weight, code: path || '0' });
+                    return;
+                }
+                if (node.left) dfs(node.left, path + '0');
+                if (node.right) dfs(node.right, path + '1');
+            }
+            dfs(rootId, '');
+            output.sort((a, b) => a.char.localeCompare(b.char, 'zh-CN'));
+            let wpl = 0;
+            output.forEach(item => {
+                wpl += item.weight * item.code.length;
+            });
+            return { codes: output, wpl };
+        }
+
+        function buildSteps(dataList) {
+            const localSteps = [];
+            const nodes = {};
+            const activeIds = [];
+            let uid = 0;
+
+            dataList.forEach((item, idx) => {
+                const id = `n${uid++}`;
+                nodes[id] = {
+                    id,
+                    label: item.char,
+                    weight: item.weight,
+                    left: null,
+                    right: null,
+                    order: idx
+                };
+                activeIds.push(id);
+            });
+
+            localSteps.push(snapshotState(nodes, activeIds, {
+                type: 'init',
+                selectedIds: [],
+                newId: null,
+                codeLine: [0],
+                info: '初始化完成：每个字符单独作为一棵树（叶子结点）。'
+            }));
+
+            while (activeIds.length > 1) {
+                activeIds.sort((a, b) => {
+                    const wa = nodes[a].weight;
+                    const wb = nodes[b].weight;
+                    if (wa !== wb) return wa - wb;
+                    return nodes[a].order - nodes[b].order;
+                });
+
+                const first = activeIds[0];
+                const second = activeIds[1];
+
+                localSteps.push(snapshotState(nodes, activeIds, {
+                    type: 'pick',
+                    selectedIds: [first, second],
+                    newId: null,
+                    codeLine: [2, 3],
+                    info: `选出最小的两个结点：${nodes[first].label || '内部'}(${nodes[first].weight}) 和 ${nodes[second].label || '内部'}(${nodes[second].weight})。`
+                }));
+
+                const mergedId = `n${uid++}`;
+                nodes[mergedId] = {
+                    id: mergedId,
+                    label: '',
+                    weight: nodes[first].weight + nodes[second].weight,
+                    left: first,
+                    right: second,
+                    order: uid + 1000
+                };
+
+                activeIds.splice(0, 2);
+                activeIds.push(mergedId);
+
+                localSteps.push(snapshotState(nodes, activeIds, {
+                    type: 'merge',
+                    selectedIds: [first, second],
+                    newId: mergedId,
+                    codeLine: [4, 5, 6],
+                    info: `合并为新结点(${nodes[mergedId].weight})，并放回集合。`
+                }));
+            }
+
+            const rootId = activeIds[0];
+            const result = buildCodes(nodes, rootId);
+            localSteps.push(snapshotState(nodes, activeIds, {
+                type: 'done',
+                selectedIds: [],
+                newId: rootId,
+                codeLine: [8],
+                info: `构建完成：得到哈夫曼树根结点，权值总和 ${nodes[rootId].weight}。`,
+                codes: result.codes,
+                wpl: result.wpl
+            }));
+
+            return localSteps;
+        }
+
+        function nodeColor(nodeId, step) {
+            if (step.selectedIds.includes(nodeId)) return colorPick;
+            if (step.newId === nodeId && (step.type === 'merge' || step.type === 'done')) return colorNew;
+            const node = step.nodes[nodeId];
+            if (!node.left && !node.right) return colorLeaf;
+            return colorInner;
+        }
+
+        function toTreeData(nodes, nodeId) {
+            const node = nodes[nodeId];
+            const base = {
+                id: node.id,
+                label: node.label,
+                weight: node.weight
+            };
+            if (node.left && node.right) {
+                base.children = [
+                    toTreeData(nodes, node.left),
+                    toTreeData(nodes, node.right)
+                ];
+            }
+            return base;
+        }
+
+        function renderForest(step) {
+            const nextLayer = g.append('g')
+                .attr('class', 'forest-layer')
+                .attr('opacity', 0);
+
+            const roots = step.activeIds.slice().sort((a, b) => {
+                const wa = step.nodes[a].weight;
+                const wb = step.nodes[b].weight;
+                if (wa !== wb) return wa - wb;
+                return step.nodes[a].order - step.nodes[b].order;
+            });
+
+            const layout = d3.tree().nodeSize([62, 78]);
+            const trees = roots.map(rootId => {
+                const hierarchy = d3.hierarchy(toTreeData(step.nodes, rootId));
+                layout(hierarchy);
+                const xs = hierarchy.descendants().map(d => d.x);
+                const minX = d3.min(xs);
+                const maxX = d3.max(xs);
+                const width = (maxX - minX) + 96;
+                return { rootId, hierarchy, minX, width };
+            });
+
+            let total = 20;
+            trees.forEach(t => {
+                total += t.width + 24;
+            });
+            svg.attr('width', Math.max(900, total + 20));
+
+            let offsetX = 30;
+            const offsetY = 48;
+            const animMs = Math.max(220, Math.min(420, Math.floor(speed * 0.42)));
+
+            trees.forEach(treeObj => {
+                const localGroup = nextLayer.append('g')
+                    .attr('transform', `translate(${offsetX},${offsetY + 4})`)
+                    .attr('opacity', 0);
+                const hierarchy = treeObj.hierarchy;
+
+                localGroup.transition()
+                    .duration(animMs)
+                    .ease(animEase)
+                    .attr('transform', `translate(${offsetX},${offsetY})`)
+                    .attr('opacity', 1);
+
+                localGroup.selectAll('.edge')
+                    .data(hierarchy.links())
+                    .join('line')
+                    .attr('class', 'edge')
+                    .attr('x1', d => d.source.x - treeObj.minX + 30)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x - treeObj.minX + 30)
+                    .attr('y2', d => d.target.y)
+                    .attr('opacity', 0)
+                    .transition()
+                    .duration(animMs)
+                    .ease(animEase)
+                    .attr('opacity', 1);
+
+                localGroup.selectAll('.edge-bit')
+                    .data(hierarchy.links())
+                    .join('text')
+                    .attr('class', 'edge-bit')
+                    .attr('x', d => (d.source.x + d.target.x) / 2 - treeObj.minX + 30)
+                    .attr('y', d => (d.source.y + d.target.y) / 2 - 4)
+                    .attr('opacity', 0)
+                    .text(d => {
+                        const children = d.source.data.children || [];
+                        if (!children.length) return '';
+                        return children[0].id === d.target.data.id ? '0' : '1';
+                    })
+                    .transition()
+                    .duration(animMs)
+                    .delay(Math.floor(animMs * 0.22))
+                    .ease(animEase)
+                    .attr('opacity', 1);
+
+                const nodeGroups = localGroup.selectAll('.node')
+                    .data(hierarchy.descendants())
+                    .join('g')
+                    .attr('class', 'node')
+                    .attr('transform', d => `translate(${d.x - treeObj.minX + 30},${d.y})`);
+
+                nodeGroups.append('circle')
+                    .attr('class', 'node-circle')
+                    .attr('r', 14)
+                    .attr('opacity', 0.72)
+                    .attr('fill', d => nodeColor(d.data.id, step))
+                    .transition()
+                    .duration(animMs)
+                    .ease(animEase)
+                    .attr('r', 18)
+                    .attr('opacity', 1);
+
+                nodeGroups.append('text')
+                    .attr('class', 'node-weight')
+                    .attr('dy', '0.3em')
+                    .attr('opacity', 0)
+                    .text(d => d.data.weight)
+                    .transition()
+                    .duration(animMs)
+                    .delay(Math.floor(animMs * 0.18))
+                    .ease(animEase)
+                    .attr('opacity', 1);
+
+                nodeGroups.filter(d => !d.children)
+                    .append('text')
+                    .attr('class', 'node-label')
+                    .attr('dy', '-1.85em')
+                    .attr('opacity', 0)
+                    .text(d => d.data.label)
+                    .transition()
+                    .duration(animMs)
+                    .delay(Math.floor(animMs * 0.22))
+                    .ease(animEase)
+                    .attr('opacity', 1);
+
+                offsetX += treeObj.width + 24;
+            });
+
+            const currentHeight = Math.max(560, canvasHeight);
+            svg.attr('height', currentHeight);
+
+            nextLayer.transition()
+                .duration(animMs)
+                .ease(animEase)
+                .attr('opacity', 1);
+
+            if (currentForestLayer) {
+                currentForestLayer.transition()
+                    .duration(animMs)
+                    .ease(animEase)
+                    .attr('opacity', 0)
+                    .remove();
+            }
+            currentForestLayer = nextLayer;
+        }
+
+        function renderResult(step) {
+            const resultEl = document.getElementById('result');
+            if (step.type !== 'done' || !step.codes) {
+                resultEl.textContent = '编码结果：-';
+                return;
+            }
+            const parts = step.codes.map(item => `${item.char}:${item.code}`);
+            resultEl.textContent = `编码结果：${parts.join('  ')}\n带权路径长度 WPL = ${step.wpl}`;
+        }
+
+        function renderQueue(step) {
+            const queueEl = document.getElementById('queue-info');
+            const sorted = step.activeIds.slice().sort((a, b) => {
+                const wa = step.nodes[a].weight;
+                const wb = step.nodes[b].weight;
+                if (wa !== wb) return wa - wb;
+                return step.nodes[a].order - step.nodes[b].order;
+            });
+            const text = sorted.map(id => {
+                const n = step.nodes[id];
+                const label = n.label ? n.label : '内部';
+                return `${label}(${n.weight})`;
+            }).join('，');
+            queueEl.textContent = `当前集合：${text || '-'}`;
+        }
+
+        function renderStep() {
+            if (!steps.length) return;
+            const step = steps[stepIndex];
+            document.getElementById('step-info').textContent = step.info;
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine || []);
+            renderQueue(step);
+            renderResult(step);
+            renderForest(step);
+        }
+
+        function pausePlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            pausePlay();
+            timer = setInterval(() => {
+                if (stepIndex < steps.length - 1) {
+                    stepIndex += 1;
+                    renderStep();
+                } else {
+                    pausePlay();
+                }
+            }, speed);
+        }
+
+        function resetToStart() {
+            pausePlay();
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function applyData() {
+            const text = document.getElementById('input-data').value;
+            const parsed = parseInput(text);
+            if (!parsed) {
+                alert('输入格式错误。请使用：A:5,B:9,C:12');
+                return;
+            }
+            leavesData = parsed;
+            steps = buildSteps(leavesData);
+            stepIndex = 0;
+            pausePlay();
+            renderStep();
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-apply').addEventListener('click', applyData);
+            document.getElementById('btn-play').addEventListener('click', play);
+            document.getElementById('btn-pause').addEventListener('click', pausePlay);
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.max(0, stepIndex - 1);
+                renderStep();
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+                renderStep();
+            });
+            document.getElementById('btn-reset').addEventListener('click', resetToStart);
+
+            const speedInput = document.getElementById('speed');
+            const speedLabel = document.getElementById('speed-label');
+            speedInput.addEventListener('input', e => {
+                speed = Number(e.target.value);
+                speedLabel.textContent = `${speed}ms`;
+                if (timer) play();
+            });
+        }
+
+        initCodeBox();
+        bindEvents();
+        applyData();
+    </script>
+</body>
+
+</html>

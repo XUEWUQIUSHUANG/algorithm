@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>矩阵连乘</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 380px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"] {
+            width: 500px;
+            max-width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 78px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #queue-info {
+            font-size: 13px;
+            color: #444;
+            min-height: 24px;
+            margin-bottom: 8px;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 44px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color 180ms ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        .cell {
+            stroke: #d7d7d7;
+            stroke-width: 1;
+            fill: #fff;
+            transition: fill 200ms ease;
+        }
+
+        .cell.header {
+            fill: #f7f9fc;
+        }
+
+        .cell.diag {
+            fill: #f1f8e9;
+        }
+
+        .cell.target {
+            fill: #ffeaa7;
+        }
+
+        .cell.source {
+            fill: #d6eaf8;
+        }
+
+        .cell.best {
+            fill: #d5f5e3;
+        }
+
+        .cell.current {
+            fill: #fad7a0;
+        }
+
+        .txt {
+            font-size: 13px;
+            fill: #2c3e50;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .txt.header {
+            font-weight: 600;
+            fill: #34495e;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>矩阵连乘</h1>
+
+    <div class="panel" id="input-row">
+        <label>
+            维度序列 p（格式：30,35,15,5,10,20,25）：
+            <input id="input-data" type="text" value="30,35,15,5,10,20,25" />
+        </label>
+        <button id="btn-apply">应用数据</button>
+        <span style="font-size:13px;color:#666;">若 p 长度为 n+1，则有 n 个矩阵。</span>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">
+            速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：按链长 l 从小到大填表，求每个区间的最小乘法次数。</div>
+            <div id="queue-info">当前状态：-</div>
+            <div id="result">最优结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:#ffeaa7"></span>目标状态 m[i][j]</span>
+                <span class="tag"><span class="swatch" style="background:#d6eaf8"></span>子问题来源</span>
+                <span class="tag"><span class="swatch" style="background:#fad7a0"></span>当前尝试划分 k</span>
+                <span class="tag"><span class="swatch" style="background:#d5f5e3"></span>当前最优</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <svg id="chart" width="960" height="560" style="border: 0;"></svg>
+        </div>
+    </div>
+
+    <script>
+        const codeLines = [
+            'for (i = 1; i <= n; i++) m[i][i] = 0;',
+            'for (l = 2; l <= n; l++) {',
+            '  for (i = 1; i <= n - l + 1; i++) {',
+            '    j = i + l - 1; m[i][j] = +∞;',
+            '    for (k = i; k < j; k++) {',
+            '      q = m[i][k] + m[k+1][j] + p[i-1]*p[k]*p[j];',
+            '      if (q < m[i][j]) { m[i][j] = q; s[i][j] = k; }',
+            '    }',
+            '  }',
+            '}'
+        ];
+
+        const svg = d3.select('#chart');
+        const width = +svg.attr('width');
+        const height = +svg.attr('height');
+        const margin = { top: 70, right: 30, bottom: 30, left: 80 };
+        const g = svg.append('g').attr('transform', `translate(${width / 2},${margin.top})`);
+        const cellSize = 56;
+        const tableOffsetY = 50;
+
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+        let n = 0;
+
+        function initCodeBox() {
+            const codeEl = document.getElementById('code-content');
+            codeEl.innerHTML = '';
+            codeLines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = String(idx);
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+        function highlightCode(lineList) {
+            const lines = document.querySelectorAll('.code-line');
+            lines.forEach(el => el.classList.remove('code-active'));
+            (lineList || []).forEach(idx => {
+                const target = document.querySelector(`.code-line[data-line="${idx}"]`);
+                if (target) target.classList.add('code-active');
+            });
+        }
+
+        function parseDims(text) {
+            const arr = (text || '')
+                .replace(/，/g, ',')
+                .split(',')
+                .map(v => v.trim())
+                .filter(Boolean)
+                .map(v => Number(v));
+            if (arr.length < 3) return null;
+            if (arr.some(v => !Number.isFinite(v) || v <= 0)) return null;
+            return arr.map(v => Math.floor(v));
+        }
+
+        function clone2D(mat) {
+            return mat.map(row => row.slice());
+        }
+
+        function createSnapshot(m, s, extra) {
+            return {
+                m: clone2D(m),
+                s: clone2D(s),
+                ...extra
+            };
+        }
+
+        function buildParen(s, i, j) {
+            if (i === j) return `A${i}`;
+            const k = s[i][j];
+            return `(${buildParen(s, i, k)} × ${buildParen(s, k + 1, j)})`;
+        }
+
+        function buildSteps(p) {
+            const localSteps = [];
+            const count = p.length - 1;
+            const m = Array.from({ length: count + 1 }, () => Array(count + 1).fill(null));
+            const s = Array.from({ length: count + 1 }, () => Array(count + 1).fill(null));
+
+            for (let i = 1; i <= count; i++) {
+                m[i][i] = 0;
+            }
+
+            localSteps.push(createSnapshot(m, s, {
+                type: 'init',
+                target: null,
+                sources: [],
+                best: null,
+                current: null,
+                codeLine: [0],
+                info: '初始化：主对角线 m[i][i] = 0（单个矩阵不需要乘法）。',
+                stateText: `矩阵个数 n = ${count}`
+            }));
+
+            for (let l = 2; l <= count; l++) {
+                localSteps.push(createSnapshot(m, s, {
+                    type: 'len',
+                    target: null,
+                    sources: [],
+                    best: null,
+                    current: null,
+                    codeLine: [1],
+                    info: `开始处理链长 l = ${l} 的所有区间。`,
+                    stateText: `当前链长 l = ${l}`
+                }));
+
+                for (let i = 1; i <= count - l + 1; i++) {
+                    const j = i + l - 1;
+                    m[i][j] = Infinity;
+
+                    localSteps.push(createSnapshot(m, s, {
+                        type: 'target',
+                        target: [i, j],
+                        sources: [],
+                        best: null,
+                        current: null,
+                        codeLine: [2, 3],
+                        info: `设置目标状态 m[${i}][${j}]，初值为 +∞。`,
+                        stateText: `求解区间 [${i}, ${j}]`
+                    }));
+
+                    for (let k = i; k < j; k++) {
+                        const left = m[i][k];
+                        const right = m[k + 1][j];
+                        const cost = left + right + p[i - 1] * p[k] * p[j];
+
+                        localSteps.push(createSnapshot(m, s, {
+                            type: 'try',
+                            target: [i, j],
+                            sources: [[i, k], [k + 1, j]],
+                            best: [i, j],
+                            current: [i, k, j],
+                            codeLine: [4, 5],
+                            info: `尝试划分 k=${k}：q = m[${i}][${k}] + m[${k + 1}][${j}] + p[${i - 1}]×p[${k}]×p[${j}] = ${cost}`,
+                            stateText: `区间[${i},${j}]尝试 k=${k}`
+                        }));
+
+                        if (cost < m[i][j]) {
+                            m[i][j] = cost;
+                            s[i][j] = k;
+                            localSteps.push(createSnapshot(m, s, {
+                                type: 'update',
+                                target: [i, j],
+                                sources: [[i, k], [k + 1, j]],
+                                best: [i, j],
+                                current: [i, k, j],
+                                codeLine: [6],
+                                info: `更新最优：m[${i}][${j}] = ${cost}，s[${i}][${j}] = ${k}`,
+                                stateText: `当前最优划分 k* = ${k}`
+                            }));
+                        }
+                    }
+                }
+            }
+
+            const bestValue = m[1][count];
+            const bestPlan = buildParen(s, 1, count);
+            localSteps.push(createSnapshot(m, s, {
+                type: 'done',
+                target: [1, count],
+                sources: [],
+                best: [1, count],
+                current: null,
+                codeLine: [9],
+                info: 'DP 计算结束，得到全局最优。',
+                stateText: `最优乘法次数 = ${bestValue}`,
+                bestValue,
+                bestPlan
+            }));
+
+            return localSteps;
+        }
+
+        function cellClass(i, j, step) {
+            if (i === 0 || j === 0) return 'cell header';
+            if (i > j) return 'cell';
+            let cls = 'cell';
+            if (i === j) cls += ' diag';
+
+            if (step.target && step.target[0] === i && step.target[1] === j) cls += ' target';
+            if (step.sources.some(([a, b]) => a === i && b === j)) cls += ' source';
+            if (step.best && step.best[0] === i && step.best[1] === j) cls += ' best';
+
+            if (step.current) {
+                const [ci, ck, cj] = step.current;
+                if ((i === ci && j === ck) || (i === ck + 1 && j === cj)) cls += ' current';
+            }
+            return cls;
+        }
+
+        function cellText(i, j, step) {
+            if (i === 0 && j === 0) return '';
+            if (i === 0) return `A${j}`;
+            if (j === 0) return `A${i}`;
+            if (i > j) return '';
+            const value = step.m[i][j];
+            if (value === null) return '';
+            if (value === Infinity) return '∞';
+            if (i === j) return '0';
+            const split = step.s[i][j];
+            if (split === null || split === undefined) return String(value);
+            return `${value}|${split}`;
+        }
+
+        function renderTable(step) {
+            g.selectAll('*').remove();
+
+            const size = n + 1;
+            const tableWidth = size * cellSize;
+            const tableStartX = -tableWidth / 2;
+
+            const cells = [];
+            for (let i = 0; i <= n; i++) {
+                for (let j = 0; j <= n; j++) {
+                    cells.push({ i, j });
+                }
+            }
+
+            const cellGroup = g.append('g').attr('class', 'table-layer');
+
+            cellGroup.selectAll('rect')
+                .data(cells)
+                .join('rect')
+                .attr('x', d => tableStartX + d.j * cellSize)
+                .attr('y', d => tableOffsetY + d.i * cellSize)
+                .attr('width', cellSize)
+                .attr('height', cellSize)
+                .attr('class', d => cellClass(d.i, d.j, step));
+
+            cellGroup.selectAll('text')
+                .data(cells)
+                .join('text')
+                .attr('x', d => tableStartX + d.j * cellSize + cellSize / 2)
+                .attr('y', d => tableOffsetY + d.i * cellSize + cellSize / 2)
+                .attr('class', d => (d.i === 0 || d.j === 0) ? 'txt header' : 'txt')
+                .text(d => cellText(d.i, d.j, step));
+
+            g.append('text')
+                .attr('x', tableStartX)
+                .attr('y', 22)
+                .attr('fill', '#34495e')
+                .attr('font-size', 15)
+                .attr('font-weight', 600)
+                .text('DP 表：单元格内容为 m[i][j]|s[i][j]（未出现 s 时仅显示 m）');
+        }
+
+        function renderResult(step) {
+            const resultEl = document.getElementById('result');
+            if (step.type !== 'done') {
+                resultEl.textContent = '最优结果：-';
+                return;
+            }
+            resultEl.textContent = `最优结果：最小乘法次数 = ${step.bestValue}\n最优括号化 = ${step.bestPlan}`;
+        }
+
+        function renderStateText(step) {
+            document.getElementById('queue-info').textContent = `当前状态：${step.stateText || '-'}`;
+        }
+
+        function renderStep() {
+            if (!steps.length) return;
+            const step = steps[stepIndex];
+            document.getElementById('step-info').textContent = step.info;
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine || []);
+            renderStateText(step);
+            renderResult(step);
+            renderTable(step);
+        }
+
+        function pausePlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            pausePlay();
+            timer = setInterval(() => {
+                if (stepIndex < steps.length - 1) {
+                    stepIndex += 1;
+                    renderStep();
+                } else {
+                    pausePlay();
+                }
+            }, speed);
+        }
+
+        function resetToStart() {
+            pausePlay();
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function applyData() {
+            const text = document.getElementById('input-data').value;
+            const dims = parseDims(text);
+            if (!dims) {
+                alert('输入格式错误。请使用：30,35,15,5,10');
+                return;
+            }
+            n = dims.length - 1;
+            steps = buildSteps(dims);
+            stepIndex = 0;
+            pausePlay();
+            renderStep();
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-apply').addEventListener('click', applyData);
+            document.getElementById('btn-play').addEventListener('click', play);
+            document.getElementById('btn-pause').addEventListener('click', pausePlay);
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.max(0, stepIndex - 1);
+                renderStep();
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+                renderStep();
+            });
+            document.getElementById('btn-reset').addEventListener('click', resetToStart);
+
+            const speedInput = document.getElementById('speed');
+            const speedLabel = document.getElementById('speed-label');
+            speedInput.addEventListener('input', e => {
+                speed = Number(e.target.value);
+                speedLabel.textContent = `${speed}ms`;
+                if (timer) play();
+            });
+        }
+
+        initCodeBox();
+        bindEvents();
+        applyData();
+    </script>
+</body>
+
+</html>

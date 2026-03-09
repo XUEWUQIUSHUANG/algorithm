@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>最长公共子序列（LCS）</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 360px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"] {
+            width: 170px;
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 78px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+        }
+
+        #result {
+            font-weight: 600;
+            color: #145a32;
+            margin-top: 8px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        .cell {
+            stroke: #d8d8d8;
+            stroke-width: 1;
+            fill: #fff;
+        }
+
+        .cell.active {
+            fill: #ffeaa7;
+        }
+
+        .cell.from {
+            fill: #d6eaf8;
+        }
+
+        .cell.path {
+            fill: #d5f5e3;
+        }
+
+        .cell.cursor {
+            fill: #fad7a0;
+        }
+
+        .header {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #333;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .value {
+            font-size: 14px;
+            fill: #2c3e50;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>最长公共子序列（LCS）</h1>
+
+    <div class="panel" id="input-row">
+        <label>字符串 A：<input id="input-a" type="text" value="ABCBDAB" maxlength="12" /></label>
+        <label>字符串 B：<input id="input-b" type="text" value="BDCABA" maxlength="12" /></label>
+        <button id="btn-apply">应用字符串</button>
+        <span style="font-size:13px;color:#666;">建议长度 ≤ 12，便于观察矩阵。</span>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">
+            速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：先进行 DP 填表，再进行回溯构造 LCS。</div>
+            <div id="result">LCS：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:#ffeaa7"></span>当前处理格</span>
+                <span class="tag"><span class="swatch" style="background:#d6eaf8"></span>来源格</span>
+                <span class="tag"><span class="swatch" style="background:#d5f5e3"></span>回溯路径</span>
+                <span class="tag"><span class="swatch" style="background:#fad7a0"></span>回溯光标</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <svg id="chart" width="700" height="560" style="border: 0;"></svg>
+        </div>
+    </div>
+
+    <script>
+        const codeLines = [
+            'for (int i = 1; i <= m; i++) {',
+            '    for (int j = 1; j <= n; j++) {',
+            '        if (A[i - 1] == B[j - 1]) {',
+            '            dp[i][j] = dp[i - 1][j - 1] + 1;',
+            '        } else {',
+            '            dp[i][j] = (dp[i - 1][j] > dp[i][j - 1]) ? dp[i - 1][j] : dp[i][j - 1];',
+            'int i = m, j = n;',
+            'while (i > 0 && j > 0) {',
+            '    if (A[i - 1] == B[j - 1]) { lcs[k++] = A[i - 1]; i--; j--; }',
+            '    else if (dp[i - 1][j] >= dp[i][j - 1]) i--; else j--;'
+        ];
+
+        const svg = d3.select('#chart');
+        const width = +svg.attr('width');
+        const height = +svg.attr('height');
+        const margin = { top: 70, right: 30, bottom: 30, left: 80 };
+        const g = svg.append('g').attr('transform', `translate(${width / 2},${margin.top})`);
+
+        svg.append('defs').append('marker')
+            .attr('id', 'arrow')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', '#7f8c8d');
+
+        let sequenceA = 'ABCBDAB';
+        let sequenceB = 'BDCABA';
+        let m = sequenceA.length;
+        let n = sequenceB.length;
+
+        let cellSize = 42;
+        let timeline = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+
+        function initCodeBox() {
+            const codeEl = document.getElementById('code-content');
+            codeEl.innerHTML = '';
+            codeLines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = idx;
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+        function highlightCode(line) {
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            if (line === undefined || line === null) return;
+            const target = document.querySelector(`.code-line[data-line="${line}"]`);
+            if (target) target.classList.add('code-active');
+        }
+
+        function cloneMatrix(dp) {
+            return dp.map(row => row.slice());
+        }
+
+        function pushStep(arr, step) {
+            arr.push({
+                message: step.message,
+                phase: step.phase,
+                codeLine: step.codeLine,
+                activeCell: step.activeCell || null,
+                fromCell: step.fromCell || null,
+                trace: step.trace ? step.trace.map(p => ({ i: p.i, j: p.j })) : [],
+                cursor: step.cursor || null,
+                moveTo: step.moveTo || null,
+                lcsPartial: step.lcsPartial || '',
+                lcsFinal: step.lcsFinal || null,
+                dp: cloneMatrix(step.dp)
+            });
+        }
+
+        function buildTimeline() {
+            timeline = [];
+            const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+            const trace = [];
+
+            pushStep(timeline, {
+                phase: 'init',
+                codeLine: null,
+                message: `初始化完成：dp 矩阵大小为 (${m + 1}) × (${n + 1})。`,
+                dp
+            });
+
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (sequenceA[i - 1] === sequenceB[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                        pushStep(timeline, {
+                            phase: 'fill',
+                            codeLine: 3,
+                            message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 相同，dp[${i}][${j}] = dp[${i - 1}][${j - 1}] + 1 = ${dp[i][j]}。`,
+                            activeCell: { i, j },
+                            fromCell: { i: i - 1, j: j - 1 },
+                            dp
+                        });
+                    } else {
+                        const top = dp[i - 1][j];
+                        const left = dp[i][j - 1];
+                        if (top >= left) {
+                            dp[i][j] = top;
+                            pushStep(timeline, {
+                                phase: 'fill',
+                                codeLine: 5,
+                                message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 不同，取 max(上=${top}, 左=${left})，dp[${i}][${j}] = ${dp[i][j]}（来自上方）。`,
+                                activeCell: { i, j },
+                                fromCell: { i: i - 1, j },
+                                dp
+                            });
+                        } else {
+                            dp[i][j] = left;
+                            pushStep(timeline, {
+                                phase: 'fill',
+                                codeLine: 5,
+                                message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 不同，取 max(上=${top}, 左=${left})，dp[${i}][${j}] = ${dp[i][j]}（来自左方）。`,
+                                activeCell: { i, j },
+                                fromCell: { i, j: j - 1 },
+                                dp
+                            });
+                        }
+                    }
+                }
+            }
+
+            pushStep(timeline, {
+                phase: 'transition',
+                codeLine: 6,
+                message: `填表结束。LCS 长度 = dp[${m}][${n}] = ${dp[m][n]}，进入回溯阶段。`,
+                activeCell: { i: m, j: n },
+                cursor: { i: m, j: n },
+                dp
+            });
+
+            let i = m;
+            let j = n;
+            const chars = [];
+
+            while (i > 0 && j > 0) {
+                trace.push({ i, j });
+                pushStep(timeline, {
+                    phase: 'backtrack',
+                    codeLine: 7,
+                    message: `回溯光标位于 dp[${i}][${j}]，当前已构造（逆序）片段：${chars.join('') || '-'}。`,
+                    cursor: { i, j },
+                    trace,
+                    lcsPartial: chars.slice().reverse().join(''),
+                    dp
+                });
+
+                if (sequenceA[i - 1] === sequenceB[j - 1]) {
+                    chars.push(sequenceA[i - 1]);
+                    pushStep(timeline, {
+                        phase: 'backtrack',
+                        codeLine: 8,
+                        message: `字符匹配 ${sequenceA[i - 1]}，纳入 LCS，光标斜向移动到 dp[${i - 1}][${j - 1}]。`,
+                        cursor: { i, j },
+                        moveTo: { i: i - 1, j: j - 1 },
+                        trace,
+                        lcsPartial: chars.slice().reverse().join(''),
+                        dp
+                    });
+                    i--;
+                    j--;
+                } else {
+                    const up = dp[i - 1][j];
+                    const left = dp[i][j - 1];
+                    if (up >= left) {
+                        pushStep(timeline, {
+                            phase: 'backtrack',
+                            codeLine: 9,
+                            message: `字符不匹配，比较上=${up} 与 左=${left}，向上移动到 dp[${i - 1}][${j}]。`,
+                            cursor: { i, j },
+                            moveTo: { i: i - 1, j },
+                            trace,
+                            lcsPartial: chars.slice().reverse().join(''),
+                            dp
+                        });
+                        i--;
+                    } else {
+                        pushStep(timeline, {
+                            phase: 'backtrack',
+                            codeLine: 9,
+                            message: `字符不匹配，比较上=${up} 与 左=${left}，向左移动到 dp[${i}][${j - 1}]。`,
+                            cursor: { i, j },
+                            moveTo: { i, j: j - 1 },
+                            trace,
+                            lcsPartial: chars.slice().reverse().join(''),
+                            dp
+                        });
+                        j--;
+                    }
+                }
+            }
+
+            const lcs = chars.reverse().join('');
+            pushStep(timeline, {
+                phase: 'done',
+                codeLine: null,
+                message: `回溯结束，最终 LCS = ${lcs || '空串'}，长度 = ${lcs.length}。`,
+                trace,
+                lcsFinal: lcs,
+                lcsPartial: lcs,
+                dp
+            });
+        }
+
+        function gridData() {
+            const list = [];
+            for (let i = 0; i <= m; i++) {
+                for (let j = 0; j <= n; j++) {
+                    list.push({ i, j, key: `${i}-${j}` });
+                }
+            }
+            return list;
+        }
+
+        function toXY(i, j) {
+            return {
+                x: j * cellSize,
+                y: i * cellSize
+            };
+        }
+
+        function render(step) {
+            const state = step || timeline[0];
+            const cells = gridData();
+            const matrixWidth = (n + 1) * cellSize;
+            const matrixHeight = (m + 1) * cellSize;
+
+            const rootX = (width - margin.left - margin.right - matrixWidth) / 2;
+            const rootY = 10;
+            g.attr('transform', `translate(${margin.left + rootX},${margin.top + rootY})`);
+
+            const rects = g.selectAll('rect.cell').data(cells, d => d.key);
+            rects.enter().append('rect')
+                .attr('class', 'cell')
+                .attr('width', cellSize)
+                .attr('height', cellSize)
+                .merge(rects)
+                .attr('x', d => toXY(d.i, d.j).x)
+                .attr('y', d => toXY(d.i, d.j).y)
+                .attr('class', d => {
+                    const classes = ['cell'];
+                    const onTrace = state.trace?.some(p => p.i === d.i && p.j === d.j);
+                    if (onTrace) classes.push('path');
+                    if (state.fromCell && state.fromCell.i === d.i && state.fromCell.j === d.j) classes.push('from');
+                    if (state.activeCell && state.activeCell.i === d.i && state.activeCell.j === d.j) classes.push('active');
+                    if (state.cursor && state.cursor.i === d.i && state.cursor.j === d.j) classes.push('cursor');
+                    return classes.join(' ');
+                });
+            rects.exit().remove();
+
+            const values = g.selectAll('text.value').data(cells, d => d.key);
+            values.enter().append('text')
+                .attr('class', 'value')
+                .merge(values)
+                .attr('x', d => toXY(d.i, d.j).x + cellSize / 2)
+                .attr('y', d => toXY(d.i, d.j).y + cellSize / 2)
+                .text(d => state.dp[d.i][d.j]);
+            values.exit().remove();
+
+            const colHead = g.selectAll('text.col-head').data(d3.range(1, n + 1), d => d);
+            colHead.enter().append('text').attr('class', 'header col-head')
+                .merge(colHead)
+                .attr('x', d => toXY(0, d).x + cellSize / 2)
+                .attr('y', -18)
+                .text(d => sequenceB[d - 1]);
+            colHead.exit().remove();
+
+            const rowHead = g.selectAll('text.row-head').data(d3.range(1, m + 1), d => d);
+            rowHead.enter().append('text').attr('class', 'header row-head')
+                .merge(rowHead)
+                .attr('x', -20)
+                .attr('y', d => toXY(d, 0).y + cellSize / 2)
+                .text(d => sequenceA[d - 1]);
+            rowHead.exit().remove();
+
+            const arrowData = [];
+            if (state.fromCell && state.activeCell) {
+                arrowData.push({ from: state.fromCell, to: state.activeCell });
+            }
+            if (state.moveTo && state.cursor) {
+                arrowData.push({ from: state.cursor, to: state.moveTo });
+            }
+
+            const arrows = g.selectAll('line.guide').data(arrowData, (_, idx) => idx);
+            arrows.enter().append('line')
+                .attr('class', 'guide')
+                .attr('stroke', '#7f8c8d')
+                .attr('stroke-width', 2)
+                .attr('marker-end', 'url(#arrow)')
+                .merge(arrows)
+                .attr('x1', d => toXY(d.from.i, d.from.j).x + cellSize / 2)
+                .attr('y1', d => toXY(d.from.i, d.from.j).y + cellSize / 2)
+                .attr('x2', d => toXY(d.to.i, d.to.j).x + cellSize / 2)
+                .attr('y2', d => toXY(d.to.i, d.to.j).y + cellSize / 2);
+            arrows.exit().remove();
+
+            const info = document.getElementById('step-info');
+            info.textContent = state.message;
+
+            const lcsText = state.lcsFinal || state.lcsPartial || '-';
+            document.getElementById('result').textContent = `LCS：${lcsText}`;
+
+            highlightCode(state.codeLine);
+            document.getElementById('progress').textContent = `步骤：${stepIndex + 1}/${timeline.length}`;
+        }
+
+        function stopPlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            if (timer) return;
+            timer = setInterval(() => {
+                if (stepIndex < timeline.length - 1) {
+                    stepIndex++;
+                    render(timeline[stepIndex]);
+                } else {
+                    stopPlay();
+                }
+            }, speed);
+        }
+
+        function applyInputs() {
+            const a = document.getElementById('input-a').value.trim();
+            const b = document.getElementById('input-b').value.trim();
+            sequenceA = (a || 'ABCBDAB').slice(0, 12);
+            sequenceB = (b || 'BDCABA').slice(0, 12);
+            document.getElementById('input-a').value = sequenceA;
+            document.getElementById('input-b').value = sequenceB;
+            m = sequenceA.length;
+            n = sequenceB.length;
+            cellSize = Math.max(30, Math.min(46, Math.floor(430 / Math.max(m + 1, n + 1))));
+            stopPlay();
+            buildTimeline();
+            stepIndex = 0;
+            render(timeline[0]);
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-play').addEventListener('click', play);
+            document.getElementById('btn-pause').addEventListener('click', stopPlay);
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                stopPlay();
+                if (stepIndex > 0) {
+                    stepIndex--;
+                    render(timeline[stepIndex]);
+                }
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                stopPlay();
+                if (stepIndex < timeline.length - 1) {
+                    stepIndex++;
+                    render(timeline[stepIndex]);
+                }
+            });
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                stopPlay();
+                stepIndex = 0;
+                render(timeline[0]);
+            });
+
+            document.getElementById('btn-apply').addEventListener('click', applyInputs);
+
+            const speedEl = document.getElementById('speed');
+            speedEl.addEventListener('input', (e) => {
+                speed = +e.target.value;
+                document.getElementById('speed-label').textContent = `${speed}ms`;
+                if (timer) {
+                    stopPlay();
+                    play();
+                }
+            });
+        }
+
+        initCodeBox();
+        buildTimeline();
+        bindEvents();
+        render(timeline[0]);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冒泡排序</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 360px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        #step-info {
+            min-height: 78px;
+            font-size: 14px;
+            white-space: pre-line;
+            line-height: 1.55;
+            margin-bottom: 8px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        .bar {
+            fill: steelblue;
+        }
+
+        .bar.compare {
+            fill: #e74c3c;
+        }
+
+        .bar.swap {
+            fill: orange;
+        }
+
+        .bar.done {
+            fill: #2ecc71;
+        }
+
+        .label {
+            fill: #fff;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>冒泡排序</h1>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-back">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">
+            速度：
+            <input id="speed-range" type="range" min="200" max="2000" step="200" value="1000">
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">1000ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：逐轮比较相邻元素，若左侧大于右侧则交换。</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:steelblue"></span>普通元素</span>
+                <span class="tag"><span class="swatch" style="background:#e74c3c"></span>当前比较</span>
+                <span class="tag"><span class="swatch" style="background:orange"></span>当前交换</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>排序完成</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <svg id="chart" width="700" height="560" style="border: 0;"></svg>
+        </div>
+    </div>
+
+
+
+    <script>
+        let dataInit = [10, 5, 8, 3, 6, 9, 2, 7, 4, 1];
+        let svg = d3.select('#chart');
+        let width = +svg.attr('width');
+        let height = +svg.attr('height');
+        const margin = { top: 20, right: 20, bottom: 40, left: 20 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const g = svg.append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        let data = [];
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 1000;
+        let suppressLog = false;
+
+        const codeLines = [
+            'for (let i = 0; i < n - 1; i++) {',
+            '  for (let j = 0; j < n - 1 - i; j++) {',
+            '    if (arr[j] > arr[j + 1]) {',
+            '      [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];',
+            '    }',
+            '  }',
+            '}'
+        ];
+
+        function initCodeBox() {
+            const codeEl = document.getElementById('code-content');
+            if (!codeEl) return;
+            codeEl.innerHTML = '';
+            codeLines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = idx;
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+
+        let xScale = d3.scaleBand()
+            .domain(d3.range(data.length))
+            .range([0, innerWidth])
+            .padding(0.1);
+
+        const fixedY = innerHeight / 2;
+
+        function initData() {
+            data = dataInit.slice();
+            buildSteps();
+            stepIndex = 0;
+            render({});
+        }
+
+        function buildSteps() {
+            steps = [];
+            const arr = data.slice();
+            const n = arr.length;
+
+            for (let i = 0; i < n - 1; i++) {
+                for (let j = 0; j < n - 1 - i; j++) {
+                    steps.push({ type: 'compare', i: j, j: j + 1, arr: arr.slice() });
+                    if (arr[j] > arr[j + 1]) {
+                        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+                        steps.push({ type: 'swap', i: j, j: j + 1, arr: arr.slice() });
+                    }
+                }
+                steps.push({ type: 'sorted', i: i + 1, arr: arr.slice() });
+            }
+            steps.push({ type: 'done', arr: arr.slice() });
+        }
+
+        function getStepMessage(state, arr) {
+            if (!state || !state.type) return '';
+            const n = arr?.length ?? 0;
+            let message = '';
+            if (state.type === 'compare') {
+                const a = arr[state.i];
+                const b = arr[state.j];
+                message = `比较位置 ${state.i} 和 ${state.j}，值为 ${a} 和 ${b}，发现 ${a > b ? a + ' > ' + b : a + ' ≤ ' + b + '不交换'}。`;
+            } else if (state.type === 'swap') {
+                const a = arr[state.i];
+                const b = arr[state.j];
+                message = `交换位置 ${state.i} 和 ${state.j}，交换后的值为 ${a} 和 ${b}`;
+            } else if (state.type === 'sorted') {
+                message = `位置 ${n - state.i} 及之后的元素已排序完成。`;
+            } else if (state.type === 'done') {
+                message = '排序完成：数组已按从小到大排列。';
+            }
+            return message;
+        }
+
+        function render(state) {
+            const arr = state?.arr || data;
+            const valueTransitionDuration = Math.max(220, Math.floor(speed * 0.6));
+            const getPointX = (index) => xScale(index) + xScale.bandwidth() / 2;
+            const getPointY = () => fixedY;
+            const getLabelY = () => fixedY + 4;
+
+            xScale.domain(d3.range(arr.length));
+            const points = g.selectAll('.bar')
+                .data(arr, d => `v-${d}`);
+
+            points.enter()
+                .append('circle')
+                .attr('class', 'bar')
+                .attr('cx', (d, i) => getPointX(i))
+                .attr('cy', fixedY)
+                .attr('r', 20)
+                .transition()
+                .duration(500)
+                .ease(d3.easeCubicInOut)
+                .attr('cy', fixedY);
+
+            points.transition()
+                .duration(speed)
+                .ease(d3.easeCubicInOut)
+                .attr('cx', (d, i) => getPointX(i))
+                .attr('cy', (d, i) => getPointY(i));
+
+            points.exit().remove();
+
+            const labels = g.selectAll('.label')
+                .data(arr, d => `v-${d}`);
+
+            const labelsEnter = labels.enter()
+                .append('text')
+                .attr('class', 'label')
+                .attr('x', (d, i) => getPointX(i))
+                .attr('y', (d, i) => getLabelY(i))
+                .attr('data-value', d => d)
+                .text(d => d);
+
+            const mergedLabels = labelsEnter
+                .merge(labels);
+
+            mergedLabels
+                .transition('labelMove')
+                .duration(speed)
+                .ease(d3.easeCubicInOut)
+                .attr('x', (d, i) => getPointX(i))
+                .attr('y', (d, i) => getLabelY(i));
+
+            mergedLabels.each(function (d, i) {
+                const labelNode = this;
+                const nextValue = arr[i];
+                const prevValue = Number(labelNode.dataset.value ?? nextValue);
+
+                if (!Number.isFinite(prevValue) || prevValue === nextValue) {
+                    labelNode.textContent = String(nextValue);
+                    labelNode.dataset.value = String(nextValue);
+                    return;
+                }
+
+                d3.select(labelNode)
+                    .interrupt('valueChange')
+                    .transition('valueChange')
+                    .duration(valueTransitionDuration)
+                    .ease(d3.easeCubicOut)
+                    .tween('text', () => {
+                        const interpolateValue = d3.interpolateNumber(prevValue, nextValue);
+                        return (t) => {
+                            labelNode.textContent = String(Math.round(interpolateValue(t)));
+                        };
+                    })
+                    .on('end', () => {
+                        labelNode.textContent = String(nextValue);
+                        labelNode.dataset.value = String(nextValue);
+                    });
+            });
+
+            labels.exit().remove();
+
+            g.selectAll('.bar')
+                .classed("compare", false)
+                .classed("swap", false)
+                .classed("done", false)
+            if (state?.type === 'compare') {
+                const compareValues = new Set([arr[state.i], arr[state.j]]);
+                g.selectAll('.bar')
+                    .filter(d => compareValues.has(d))
+                    .classed('compare', true);
+            } else if (state?.type === 'swap') {
+                const swapValues = new Set([arr[state.i], arr[state.j]]);
+                g.selectAll('.bar')
+                    .filter(d => swapValues.has(d))
+                    .classed('swap', true);
+            }
+
+            if (state?.type === 'done') {
+                g.selectAll('.bar')
+                    .classed('done', true);
+            }
+
+
+            const info = document.getElementById('step-info');
+            if (info && !suppressLog) {
+                const message = getStepMessage(state, arr);
+                if (message) {
+                    info.textContent = message;
+                }
+            }
+
+            const progressEl = document.getElementById('progress');
+            if (progressEl) {
+                const shownStep = state?.type
+                    ? Math.min(stepIndex + 1, steps.length)
+                    : 0;
+                progressEl.textContent = `步骤：${shownStep}/${steps.length}`;
+            }
+
+            const codeEl = document.getElementById('code-content');
+            if (codeEl) {
+                const lines = codeEl.querySelectorAll('.code-line');
+                lines.forEach(l => l.classList.remove('code-active'));
+
+                let active = [];
+                if (!state || !state.type) {
+                    active = [];
+                } else if (state.type === 'compare') {
+                    active = [2];
+                } else if (state.type === 'swap') {
+                    active = [3];
+                } else if (state.type === 'done') {
+                    active = [];
+                }
+
+                active.forEach(idx => {
+                    const lineEl = codeEl.querySelector(`.code-line[data-line="${idx}"]`);
+                    if (lineEl) {
+                        lineEl.classList.add('code-active');
+                    }
+                });
+            }
+        }
+
+        function nextStep() {
+            if (stepIndex >= steps.length) {
+                clearInterval(timer);
+                timer = null;
+                return;
+            }
+            const state = steps[stepIndex];
+            render(state);
+            stepIndex++;
+            if (stepIndex >= steps.length) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            if (timer) return;
+            if (stepIndex >= steps.length) {
+                stepIndex = 0;
+            }
+            timer = setInterval(nextStep, speed);
+        }
+
+        function pause() {
+            if (!timer) return;
+            clearInterval(timer);
+            timer = null;
+        }
+
+        function backStep() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            if (!steps.length) return;
+            let targetIndex = -1;
+            for (let i = stepIndex - 2; i >= 0; i--) {
+                if (steps[i].type === 'compare') {
+                    targetIndex = i;
+                    break;
+                }
+            }
+            if (targetIndex === -1) {
+                stepIndex = 0;
+                suppressLog = true;
+                render({});
+                suppressLog = false;
+                const info = document.getElementById('step-info');
+                if (info) {
+                    info.textContent = '准备开始：逐轮比较相邻元素，若左侧大于右侧则交换。';
+                }
+                return;
+            }
+            const state = steps[targetIndex];
+            suppressLog = true;
+            render(state);
+            suppressLog = false;
+            const info = document.getElementById('step-info');
+            if (info) {
+                const msg = getStepMessage(state, state.arr);
+                info.textContent = msg || '准备开始：逐轮比较相邻元素，若左侧大于右侧则交换。';
+            }
+            stepIndex = targetIndex + 1;
+        }
+
+        function reset() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            const info = document.getElementById('step-info');
+            if (info) {
+                info.textContent = '准备开始：逐轮比较相邻元素，若左侧大于右侧则交换。';
+            }
+            initData();
+        }
+
+        document.getElementById('btn-play').addEventListener('click', play);
+        document.getElementById('btn-pause').addEventListener('click', pause);
+        document.getElementById('btn-back').addEventListener('click', backStep);
+        document.getElementById('btn-next').addEventListener('click', nextStep);
+        document.getElementById('btn-reset').addEventListener('click', reset);
+
+        const speedInput = document.getElementById('speed-range');
+        const speedLabel = document.getElementById('speed-label');
+
+        function updateSpeed() {
+            const newSpeed = Number(speedInput.value);
+            if (!Number.isFinite(newSpeed) || newSpeed <= 0) return;
+            speed = newSpeed;
+            if (speedLabel) {
+                speedLabel.textContent = `${speed}ms`;
+            }
+            if (timer) {
+                clearInterval(timer);
+                timer = setInterval(nextStep, speed);
+            }
+        }
+
+        if (speedInput) {
+            speedInput.addEventListener('input', updateSpeed);
+        }
+
+        initCodeBox();
+        updateSpeed();
+        initData();
+
+    </script>
+</body>
+
+</html>
