@@ -48,6 +48,7 @@
             justify-content: center;
         }
 
+        #input-row,
         #controls {
             display: flex;
             flex-wrap: wrap;
@@ -172,6 +173,11 @@
 <body>
     <h1>冒泡排序</h1>
 
+    <div class="panel" id="input-row">
+        <label>数组（逗号分隔）：<input id="input-data" type="text" value="10,5,8,3,6,9,2,7,4,1" /></label>
+        <button id="btn-apply">应用数组</button>
+    </div>
+
     <div class="panel" id="controls">
         <button id="btn-play">播放</button>
         <button id="btn-pause">暂停</button>
@@ -206,7 +212,6 @@
 
 
     <script>
-        let dataInit = [10, 5, 8, 3, 6, 9, 2, 7, 4, 1];
         let svg = d3.select('#chart');
         let width = +svg.attr('width');
         let height = +svg.attr('height');
@@ -246,6 +251,12 @@
             });
         }
 
+        function parseInput(text) {
+            const arr = (text || '').replace(/，/g, ',').split(',').map(v => v.trim()).filter(Boolean).map(Number);
+            if (arr.length < 2 || arr.some(v => !Number.isFinite(v))) return null;
+            return arr.map(v => Math.floor(v));
+        }
+
 
         let xScale = d3.scaleBand()
             .domain(d3.range(data.length))
@@ -255,7 +266,8 @@
         const fixedY = innerHeight / 2;
 
         function initData() {
-            data = dataInit.slice();
+            data = parseInput(document.getElementById('input-data').value);
+            if (!data) { alert('请输入有效数组，例如：10,5,8,3'); return; }
             buildSteps();
             stepIndex = 0;
             render({});
@@ -518,6 +530,15 @@
                 info.textContent = '准备开始：逐轮比较相邻元素，若左侧大于右侧则交换。';
             }
             initData();
+        }
+
+        function applyData() {
+            const arr = parseInput(document.getElementById('input-data').value);
+            if (!arr) { alert('请输入有效数组，例如：10,5,8,3'); return; }
+            steps = buildSteps(arr);
+            stepIndex = 0;
+            pause();
+            render(steps[0]);
         }
 
         document.getElementById('btn-play').addEventListener('click', play);

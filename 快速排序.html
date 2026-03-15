@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>快速排序</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 380px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"] {
+            width: 460px;
+            max-width: 100%;
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 72px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 44px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color .2s ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .node {
+            fill: steelblue;
+            transition: fill .2s ease;
+        }
+
+        .node.range {
+            fill: #3498db;
+        }
+
+        .node.pivot {
+            fill: #f39c12;
+        }
+
+        .node.pointer {
+            fill: #e74c3c;
+        }
+
+        .node.done {
+            fill: #2ecc71;
+        }
+
+        .label {
+            fill: #fff;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-weight: 600;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>快速排序可视化演示</h1>
+
+    <div class="panel" id="input-row">
+        <label>数组（逗号分隔）：<input id="input-data" type="text" value="10,5,8,3,6,9,2,7,4,1" /></label>
+        <button id="btn-apply">应用数组</button>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：选择基准 pivot，对区间进行划分。</div>
+            <div id="result">结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:steelblue"></span>普通</span>
+                <span class="tag"><span class="swatch" style="background:#3498db"></span>当前区间</span>
+                <span class="tag"><span class="swatch" style="background:#f39c12"></span>pivot</span>
+                <span class="tag"><span class="swatch" style="background:#e74c3c"></span>指针位置</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>已确定</span>
+            </div>
+        </div>
+        <div class="panel chart-panel">
+            <svg id="chart" width="920" height="560" style="border:0"></svg>
+        </div>
+    </div>
+
+    <script>
+        const codeLines = [
+            'void quickSort(int a[], int l, int r) {',
+            '    if (l >= r) return;',
+            '    int i = l, j = r, pivot = a[l];',
+            '    while (i < j) {',
+            '        while (i < j && a[j] >= pivot) j--;',
+            '        while (i < j && a[i] <= pivot) i++;',
+            '        if (i < j) swap(a[i], a[j]);',
+            '    }',
+            '    swap(a[l], a[i]);',
+            '    quickSort(a, l, i - 1); quickSort(a, i + 1, r);',
+            '}'
+        ];
+
+        const svg = d3.select('#chart');
+        const width = +svg.attr('width');
+        const height = +svg.attr('height');
+        const margin = { top: 20, right: 20, bottom: 40, left: 20 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+
+        function initCodeBox() {
+            const box = document.getElementById('code-content');
+            box.innerHTML = '';
+            codeLines.forEach((line, idx) => {
+                const s = document.createElement('span');
+                s.className = 'code-line';
+                s.dataset.line = idx;
+                s.textContent = line;
+                box.appendChild(s);
+            });
+        }
+
+        function highlightCode(lines) {
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            (lines || []).forEach(i => {
+                const t = document.querySelector(`.code-line[data-line="${i}"]`);
+                if (t) t.classList.add('code-active');
+            });
+        }
+
+        function parseInput(text) {
+            const arr = (text || '').replace(/，/g, ',').split(',').map(v => v.trim()).filter(Boolean).map(Number);
+            if (arr.length < 2 || arr.some(v => !Number.isFinite(v))) return null;
+            return arr.map(v => Math.floor(v));
+        }
+
+        function clone(arr) {
+            return arr.slice();
+        }
+
+        function pushStep(list, arr, extra) {
+            list.push({ arr: clone(arr), ...extra });
+        }
+
+        function buildSteps(initArr) {
+            const arr = clone(initArr);
+            const done = new Set();
+            const local = [];
+
+            pushStep(local, arr, {
+                info: '初始化完成。',
+                codeLine: [0],
+                l: -1,
+                r: -1,
+                pivotIndex: -1,
+                i: -1,
+                j: -1,
+                doneList: []
+            });
+
+            function qs(l, r) {
+                pushStep(local, arr, {
+                    info: `处理区间 [${l}, ${r}]`,
+                    codeLine: [0, 1],
+                    l,
+                    r,
+                    pivotIndex: -1,
+                    i: -1,
+                    j: -1,
+                    doneList: Array.from(done)
+                });
+
+                if (l >= r) {
+                    if (l === r) done.add(l);
+                    pushStep(local, arr, {
+                        info: `区间 [${l}, ${r}] 结束。`,
+                        codeLine: [1],
+                        l,
+                        r,
+                        pivotIndex: -1,
+                        i: -1,
+                        j: -1,
+                        doneList: Array.from(done)
+                    });
+                    return;
+                }
+
+                let i = l;
+                let j = r;
+                const pivot = arr[l];
+                pushStep(local, arr, {
+                    info: `选取 pivot = a[${l}] = ${pivot}`,
+                    codeLine: [2],
+                    l,
+                    r,
+                    pivotIndex: l,
+                    i,
+                    j,
+                    doneList: Array.from(done)
+                });
+
+                while (i < j) {
+                    while (i < j && arr[j] >= pivot) {
+                        j--;
+                        pushStep(local, arr, {
+                            info: `j 左移到 ${j}`,
+                            codeLine: [4],
+                            l,
+                            r,
+                            pivotIndex: l,
+                            i,
+                            j,
+                            doneList: Array.from(done)
+                        });
+                    }
+
+                    while (i < j && arr[i] <= pivot) {
+                        i++;
+                        pushStep(local, arr, {
+                            info: `i 右移到 ${i}`,
+                            codeLine: [5],
+                            l,
+                            r,
+                            pivotIndex: l,
+                            i,
+                            j,
+                            doneList: Array.from(done)
+                        });
+                    }
+
+                    if (i < j) {
+                        [arr[i], arr[j]] = [arr[j], arr[i]];
+                        pushStep(local, arr, {
+                            info: `交换 a[${i}] 与 a[${j}]`,
+                            codeLine: [6],
+                            l,
+                            r,
+                            pivotIndex: l,
+                            i,
+                            j,
+                            doneList: Array.from(done)
+                        });
+                    }
+                }
+
+                [arr[l], arr[i]] = [arr[i], arr[l]];
+                done.add(i);
+                pushStep(local, arr, {
+                    info: `pivot 归位到下标 ${i}`,
+                    codeLine: [8],
+                    l,
+                    r,
+                    pivotIndex: i,
+                    i,
+                    j,
+                    doneList: Array.from(done)
+                });
+
+                qs(l, i - 1);
+                qs(i + 1, r);
+            }
+
+            qs(0, arr.length - 1);
+            for (let i = 0; i < arr.length; i++) done.add(i);
+
+            pushStep(local, arr, {
+                info: '排序完成。',
+                codeLine: [9],
+                l: -1,
+                r: -1,
+                pivotIndex: -1,
+                i: -1,
+                j: -1,
+                doneList: Array.from(done),
+                done: true
+            });
+
+            return local;
+        }
+
+        function render(step) {
+            const arr = step.arr;
+            const x = d3.scaleBand().domain(d3.range(arr.length)).range([0, innerWidth]).padding(0.15);
+            const cy = innerHeight / 2;
+            const radius = Math.max(14, Math.min(26, x.bandwidth() / 2 - 3));
+
+            const nodes = g.selectAll('circle.node').data(arr, (_, idx) => idx);
+            nodes.join(
+                enter => enter.append('circle').attr('class', 'node')
+                    .attr('cx', (_, idx) => x(idx) + x.bandwidth() / 2)
+                    .attr('cy', cy)
+                    .attr('r', 0)
+                    .call(sel => sel.transition().duration(250).attr('r', radius)),
+                update => update,
+                exit => exit.remove()
+            )
+                .attr('class', (_, idx) => {
+                    const cls = ['node'];
+                    if (step.l >= 0 && step.r >= 0 && idx >= step.l && idx <= step.r) cls.push('range');
+                    if (idx === step.pivotIndex) cls.push('pivot');
+                    if (idx === step.i || idx === step.j) cls.push('pointer');
+                    if ((step.doneList || []).includes(idx)) cls.push('done');
+                    return cls.join(' ');
+                })
+                .transition().duration(220)
+                .attr('cx', (_, idx) => x(idx) + x.bandwidth() / 2)
+                .attr('cy', cy)
+                .attr('r', radius);
+
+            const labels = g.selectAll('.label').data(arr, (_, idx) => idx);
+            labels.join(
+                enter => enter.append('text').attr('class', 'label').attr('x', (_, idx) => x(idx) + x.bandwidth() / 2).attr('y', cy + 4).text(v => v),
+                update => update.text(v => v),
+                exit => exit.remove()
+            ).transition().duration(220)
+                .attr('x', (_, idx) => x(idx) + x.bandwidth() / 2)
+                .attr('y', cy + 4);
+
+            document.getElementById('step-info').textContent = step.info;
+            document.getElementById('result').textContent = `当前数组：${arr.join(', ')}`;
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine);
+        }
+
+        function pause() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            pause();
+            timer = setInterval(() => {
+                if (stepIndex < steps.length - 1) {
+                    stepIndex++;
+                    render(steps[stepIndex]);
+                } else {
+                    pause();
+                }
+            }, speed);
+        }
+
+        function reset() {
+            pause();
+            stepIndex = 0;
+            render(steps[0]);
+        }
+
+        function applyData() {
+            const arr = parseInput(document.getElementById('input-data').value);
+            if (!arr) {
+                alert('请输入有效数组，例如：10,5,8,3');
+                return;
+            }
+            steps = buildSteps(arr);
+            stepIndex = 0;
+            pause();
+            render(steps[0]);
+        }
+
+        document.getElementById('btn-apply').addEventListener('click', applyData);
+        document.getElementById('btn-play').addEventListener('click', play);
+        document.getElementById('btn-pause').addEventListener('click', pause);
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            pause();
+            stepIndex = Math.max(0, stepIndex - 1);
+            render(steps[stepIndex]);
+        });
+        document.getElementById('btn-next').addEventListener('click', () => {
+            pause();
+            stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+            render(steps[stepIndex]);
+        });
+        document.getElementById('btn-reset').addEventListener('click', reset);
+        document.getElementById('speed').addEventListener('input', e => {
+            speed = Number(e.target.value);
+            document.getElementById('speed-label').textContent = `${speed}ms`;
+            if (timer) play();
+        });
+
+        initCodeBox();
+        applyData();
+    </script>
+</body>
+
+</html>

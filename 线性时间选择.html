@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>线性时间选择</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 390px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #input-data {
+            width: 460px;
+            max-width: 100%;
+        }
+
+        #input-k {
+            width: 88px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 76px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 44px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color .2s ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .node {
+            fill: steelblue;
+            transition: fill .2s ease;
+        }
+
+        .node.range {
+            fill: #3498db;
+        }
+
+        .node.pivot {
+            fill: #f39c12;
+        }
+
+        .node.lt {
+            fill: #9b59b6;
+        }
+
+        .node.eq {
+            fill: #2ecc71;
+        }
+
+        .node.gt {
+            fill: #95a5a6;
+        }
+
+        .node.kth {
+            stroke: #e74c3c;
+            stroke-width: 3;
+        }
+
+        .label {
+            fill: #fff;
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1280px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>线性时间选择（BFPRT）可视化演示</h1>
+    <div class="panel" id="input-row">
+        <label>数组：<input id="input-data" type="text" value="10,5,8,3,6,9,2,7,4,1" /></label>
+        <label>第 k 小（1-based）：<input id="input-k" type="number" min="1" value="4" /></label>
+        <button id="btn-apply">开始选择</button>
+    </div>
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button><button id="btn-pause">暂停</button><button id="btn-prev">上一步</button><button
+            id="btn-next">下一步</button><button id="btn-reset">重置</button>
+        <label style="font-size:14px;">速度：<input id="speed" type="range" min="200" max="1800" step="200"
+                value="900" /><span id="speed-label"
+                style="display:inline-block;width:52px;text-align:center;">900ms</span></label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：在区间内用“中位数的中位数”选主元并划分。</div>
+            <div id="result">结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:#3498db"></span>当前区间</span>
+                <span class="tag"><span class="swatch" style="background:#f39c12"></span>pivot</span>
+                <span class="tag"><span class="swatch" style="background:#9b59b6"></span>&lt; pivot</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>= pivot</span>
+                <span class="tag"><span class="swatch" style="background:#95a5a6"></span>&gt; pivot</span>
+            </div>
+        </div>
+        <div class="panel chart-panel"><svg id="chart" width="920" height="560" style="border:0"></svg></div>
+    </div>
+
+    <script>
+        const codeLines = [
+            'int selectK(int a[], int l, int r, int k) {',
+            '    if (l == r) return a[l];',
+            '    int pivot = medianOfMedians(a, l, r);',
+            '    partition(a, l, r, pivot, &ltEnd, &eqEnd);',
+            '    if (k < ltEnd) return selectK(a, l, ltEnd - 1, k);',
+            '    if (k <= eqEnd) return pivot;',
+            '    return selectK(a, eqEnd + 1, r, k);',
+            '}'
+        ];
+
+        const svg = d3.select('#chart');
+        const width = +svg.attr('width');
+        const height = +svg.attr('height');
+        const margin = { top: 20, right: 20, bottom: 40, left: 20 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        let steps = [], stepIndex = 0, timer = null, speed = 900;
+
+        function initCodeBox() { const c = document.getElementById('code-content'); c.innerHTML = ''; codeLines.forEach((line, idx) => { const s = document.createElement('span'); s.className = 'code-line'; s.dataset.line = idx; s.textContent = line; c.appendChild(s); }); }
+        function highlightCode(lines) { document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active')); (lines || []).forEach(i => { const t = document.querySelector(`.code-line[data-line="${i}"]`); if (t) t.classList.add('code-active'); }); }
+        function parseInput(text) { const arr = (text || '').replace(/，/g, ',').split(',').map(v => v.trim()).filter(Boolean).map(Number); if (arr.length < 1 || arr.some(v => !Number.isFinite(v))) return null; return arr.map(v => Math.floor(v)); }
+        function clone(arr) { return arr.slice(); }
+        function pushStep(list, arr, extra) { list.push({ arr: clone(arr), ...extra }); }
+
+        function medianOfMediansValue(subArr) {
+            if (subArr.length <= 5) {
+                const s = clone(subArr).sort((a, b) => a - b);
+                return s[Math.floor(s.length / 2)];
+            }
+            const medians = [];
+            for (let i = 0; i < subArr.length; i += 5) {
+                const group = clone(subArr.slice(i, i + 5)).sort((a, b) => a - b);
+                medians.push(group[Math.floor(group.length / 2)]);
+            }
+            return medianOfMediansValue(medians);
+        }
+
+        function buildSteps(initArr, k1) {
+            const arr = clone(initArr);
+            const local = [];
+            const k = k1 - 1;
+
+            pushStep(local, arr, { info: `目标：寻找第 ${k1} 小元素（下标 ${k}）。`, codeLine: [0], l: 0, r: arr.length - 1, pivot: null, lt: -1, eq: -1, k, done: false });
+
+            function selectRec(l, r) {
+                pushStep(local, arr, { info: `处理区间 [${l}, ${r}]`, codeLine: [0, 1], l, r, pivot: null, lt: -1, eq: -1, k, done: false });
+                if (l === r) {
+                    pushStep(local, arr, { info: `区间只剩一个元素：${arr[l]}`, codeLine: [1], l, r, pivot: arr[l], lt: l, eq: l, k, done: true, answer: arr[l] });
+                    return arr[l];
+                }
+
+                const pivot = medianOfMediansValue(arr.slice(l, r + 1));
+                pushStep(local, arr, { info: `选择 pivot（中位数的中位数）= ${pivot}`, codeLine: [2], l, r, pivot, lt: -1, eq: -1, k, done: false });
+
+                const less = [], equal = [], greater = [];
+                for (let i = l; i <= r; i++) {
+                    if (arr[i] < pivot) less.push(arr[i]);
+                    else if (arr[i] > pivot) greater.push(arr[i]);
+                    else equal.push(arr[i]);
+                }
+
+                let idx = l;
+                less.forEach(v => arr[idx++] = v);
+                equal.forEach(v => arr[idx++] = v);
+                greater.forEach(v => arr[idx++] = v);
+                const ltEnd = l + less.length;
+                const eqEnd = ltEnd + equal.length - 1;
+
+                pushStep(local, arr, {
+                    info: `划分完成：<pivot 有 ${less.length} 个，=pivot 有 ${equal.length} 个。`,
+                    codeLine: [3], l, r, pivot, lt: ltEnd, eq: eqEnd, k, done: false
+                });
+
+                if (k < ltEnd) {
+                    pushStep(local, arr, { info: `k 在左侧，递归 [${l}, ${ltEnd - 1}]`, codeLine: [4], l, r, pivot, lt: ltEnd, eq: eqEnd, k, done: false });
+                    return selectRec(l, ltEnd - 1);
+                }
+                if (k <= eqEnd) {
+                    pushStep(local, arr, { info: `k 落在等于 pivot 区间，答案为 ${pivot}。`, codeLine: [5], l, r, pivot, lt: ltEnd, eq: eqEnd, k, done: true, answer: pivot });
+                    return pivot;
+                }
+                pushStep(local, arr, { info: `k 在右侧，递归 [${eqEnd + 1}, ${r}]`, codeLine: [6], l, r, pivot, lt: ltEnd, eq: eqEnd, k, done: false });
+                return selectRec(eqEnd + 1, r);
+            }
+
+            const ans = selectRec(0, arr.length - 1);
+            pushStep(local, arr, { info: `选择完成：第 ${k1} 小元素为 ${ans}。`, codeLine: [7], l: -1, r: -1, pivot: ans, lt: -1, eq: -1, k, done: true, answer: ans });
+            return local;
+        }
+
+        function render(step) {
+            const arr = step.arr;
+            const x = d3.scaleBand().domain(d3.range(arr.length)).range([0, innerWidth]).padding(0.15);
+            const cy = innerHeight / 2;
+            const radius = Math.max(14, Math.min(26, x.bandwidth() / 2 - 3));
+
+            g.selectAll('circle.node').data(arr, (_, i) => i).join('circle').attr('class', (_, i) => {
+                const cls = ['node'];
+                if (step.l >= 0 && step.r >= 0 && i >= step.l && i <= step.r) cls.push('range');
+                if (step.pivot !== null && arr[i] === step.pivot && i >= step.l && i <= step.r) cls.push('pivot');
+                if (step.lt >= 0 && step.eq >= 0 && i >= step.l && i < step.lt) cls.push('lt');
+                if (step.lt >= 0 && step.eq >= 0 && i >= step.lt && i <= step.eq) cls.push('eq');
+                if (step.lt >= 0 && step.eq >= 0 && i > step.eq && i <= step.r) cls.push('gt');
+                if (i === step.k) cls.push('kth');
+                return cls.join(' ');
+            }).transition().duration(220)
+                .attr('cx', (_, i) => x(i) + x.bandwidth() / 2).attr('cy', cy).attr('r', radius);
+
+            g.selectAll('.label').data(arr, (_, i) => i).join('text').attr('class', 'label').text(v => v)
+                .transition().duration(220).attr('x', (_, i) => x(i) + x.bandwidth() / 2).attr('y', cy + 4);
+
+            document.getElementById('step-info').textContent = step.info;
+            document.getElementById('result').textContent = step.answer !== undefined ? `第 ${step.k + 1} 小元素：${step.answer}` : `当前数组：${arr.join(', ')}`;
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine);
+        }
+
+        function pause() { if (timer) { clearInterval(timer); timer = null; } }
+        function play() { pause(); timer = setInterval(() => { if (stepIndex < steps.length - 1) { stepIndex++; render(steps[stepIndex]); } else pause(); }, speed); }
+        function reset() { pause(); stepIndex = 0; render(steps[0]); }
+        function applyData() {
+            const arr = parseInput(document.getElementById('input-data').value);
+            const k = Number(document.getElementById('input-k').value);
+            if (!arr || !Number.isInteger(k) || k < 1 || k > arr.length) { alert(`请输入有效数组，并保证 1 <= k <= n（n=${arr ? arr.length : '?'}）`); return; }
+            steps = buildSteps(arr, k); stepIndex = 0; pause(); render(steps[0]);
+        }
+
+        document.getElementById('btn-apply').addEventListener('click', applyData);
+        document.getElementById('btn-play').addEventListener('click', play);
+        document.getElementById('btn-pause').addEventListener('click', pause);
+        document.getElementById('btn-prev').addEventListener('click', () => { pause(); stepIndex = Math.max(0, stepIndex - 1); render(steps[stepIndex]); });
+        document.getElementById('btn-next').addEventListener('click', () => { pause(); stepIndex = Math.min(steps.length - 1, stepIndex + 1); render(steps[stepIndex]); });
+        document.getElementById('btn-reset').addEventListener('click', reset);
+        document.getElementById('speed').addEventListener('input', e => { speed = Number(e.target.value); document.getElementById('speed-label').textContent = `${speed}ms`; if (timer) play(); });
+
+        initCodeBox();
+        applyData();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>0-1背包（回溯法 & 分支限界法）</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 400px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #input-items {
+            width: 430px;
+            max-width: 100%;
+        }
+
+        #input-capacity {
+            width: 88px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 72px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #state-info {
+            font-size: 13px;
+            color: #444;
+            min-height: 32px;
+            margin-bottom: 8px;
+            white-space: pre-line;
+            line-height: 1.45;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 52px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color 200ms ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        .edge {
+            stroke: #b2bec3;
+            stroke-width: 1.8;
+        }
+
+        .node-circle {
+            stroke: #fff;
+            stroke-width: 1.8;
+            transition: fill 220ms ease;
+        }
+
+        .node-text {
+            fill: #fff;
+            font-size: 11px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-weight: 600;
+        }
+
+        .node-label {
+            fill: #2c3e50;
+            font-size: 11px;
+            text-anchor: middle;
+        }
+
+        .edge-label {
+            fill: #5d6d7e;
+            font-size: 11px;
+            text-anchor: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1320px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>0-1背包可视化（回溯法 & 分支限界法）</h1>
+
+    <div class="panel" id="input-row">
+        <label>物品（格式：重量:价值，用逗号分隔）：
+            <input id="input-items" type="text" value="2:12,1:10,3:20,2:15" />
+        </label>
+        <label>容量：
+            <input id="input-capacity" type="number" min="1" value="5" />
+        </label>
+        <label>算法：
+            <select id="algo-select">
+                <option value="backtrack">回溯法</option>
+                <option value="branchbound">分支限界法</option>
+            </select>
+        </label>
+        <button id="btn-apply">应用数据</button>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">
+            速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：读取输入后展开状态空间树。</div>
+            <div id="state-info">当前状态：-</div>
+            <div id="result">最优结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+            <div class="legend">
+                <span class="tag"><span class="swatch" style="background:steelblue"></span>普通结点</span>
+                <span class="tag"><span class="swatch" style="background:#e74c3c"></span>当前访问</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>当前最优</span>
+                <span class="tag"><span class="swatch" style="background:#95a5a6"></span>剪枝结点</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <svg id="chart" width="900" height="560" style="border: 0;"></svg>
+        </div>
+    </div>
+
+    <script>
+        const btCodeLines = [
+            'int bestValue = 0;',
+            'void DFS(int level, int weight, int value) {',
+            '    if (weight > C) return;',
+            '    if (value > bestValue) { bestValue = value; }',
+            '    if (level == n) return;',
+            '    if (value + optimisticBound(level) <= bestValue) return;',
+            '    DFS(level + 1, weight + w[level], value + v[level]);',
+            '    DFS(level + 1, weight, value);',
+            '}'
+        ];
+
+        const bbCodeLines = [
+            'int bestValue = 0; push(root);',
+            'while (!queueEmpty()) {',
+            '    Node u = popMaxBound(queue);',
+            '    if (u.bound <= bestValue) continue;',
+            '    Node in = makeIncludeChild(u); Node ex = makeExcludeChild(u);',
+            '    if (in.weight <= C && in.value > bestValue) bestValue = in.value;',
+            '    if (in.bound > bestValue) push(in); if (ex.bound > bestValue) push(ex);',
+            '}'
+        ];
+
+        const svg = d3.select('#chart');
+        const g = svg.append('g').attr('transform', 'translate(20,20)');
+        const treeLayer = g.append('g').attr('class', 'tree-layer');
+        g.append('text')
+            .attr('x', 6)
+            .attr('y', 18)
+            .attr('fill', '#34495e')
+            .attr('font-size', 14)
+            .attr('font-weight', 600)
+            .text('状态树（边标签：1=取当前物品，0=不取）');
+        const colorNormal = 'steelblue';
+        const colorActive = '#e74c3c';
+        const colorBest = '#2ecc71';
+        const colorPruned = '#95a5a6';
+
+        let items = [];
+        let capacity = 0;
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+        let currentAlgo = 'backtrack';
+        const animEase = d3.easeCubicInOut;
+
+        function parseItems(text) {
+            const list = (text || '').replace(/，/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+            if (!list.length) return null;
+            const parsed = [];
+            for (let idx = 0; idx < list.length; idx++) {
+                const pair = list[idx].split(':');
+                if (pair.length !== 2) return null;
+                const weight = Number(pair[0].trim());
+                const value = Number(pair[1].trim());
+                if (!Number.isFinite(weight) || !Number.isFinite(value) || weight <= 0 || value <= 0) return null;
+                parsed.push({
+                    id: idx + 1,
+                    weight: Math.floor(weight),
+                    value: Math.floor(value)
+                });
+            }
+            return parsed;
+        }
+
+        function normalizeItems(rawItems) {
+            return rawItems
+                .map(item => ({ ...item, ratio: item.value / item.weight }))
+                .sort((a, b) => {
+                    if (b.ratio !== a.ratio) return b.ratio - a.ratio;
+                    return a.weight - b.weight;
+                });
+        }
+
+        function optimisticByValueSuffix(sortedItems) {
+            const n = sortedItems.length;
+            const suffix = Array(n + 1).fill(0);
+            for (let i = n - 1; i >= 0; i--) {
+                suffix[i] = suffix[i + 1] + sortedItems[i].value;
+            }
+            return suffix;
+        }
+
+        function boundFractional(sortedItems, cap, level, weight, value) {
+            if (weight >= cap) return value;
+            let remain = cap - weight;
+            let bound = value;
+            for (let i = level; i < sortedItems.length; i++) {
+                const it = sortedItems[i];
+                if (it.weight <= remain) {
+                    remain -= it.weight;
+                    bound += it.value;
+                } else {
+                    bound += remain * it.ratio;
+                    break;
+                }
+            }
+            return bound;
+        }
+
+        function snapshot(stepsArr, nodes, extra) {
+            const nodeCopy = nodes.map(n => ({ ...n }));
+            stepsArr.push({
+                nodes: nodeCopy,
+                ...extra
+            });
+        }
+
+        function buildBacktrackingSteps(sortedItems, cap) {
+            const localSteps = [];
+            const nodes = [];
+            const suffix = optimisticByValueSuffix(sortedItems);
+            const depthCount = {};
+            let uid = 0;
+            let bestValue = 0;
+            let bestPath = [];
+            let bestNodeId = null;
+
+            function createNode(parentId, depth, itemIndex, take, weight, value, path, status) {
+                depthCount[depth] = (depthCount[depth] || 0) + 1;
+                const order = depthCount[depth];
+                const node = {
+                    id: `n${uid++}`,
+                    parentId,
+                    depth,
+                    order,
+                    itemIndex,
+                    take,
+                    weight,
+                    value,
+                    path: path.slice(),
+                    status
+                };
+                nodes.push(node);
+                return node;
+            }
+
+            const root = createNode(null, 0, 0, null, 0, 0, [], 'normal');
+
+            snapshot(localSteps, nodes, {
+                algo: 'backtrack',
+                activeId: root.id,
+                bestNodeId,
+                bestValue,
+                bestPath: bestPath.slice(),
+                codeLine: [0, 1],
+                info: '初始化：从根结点开始深度优先搜索。',
+                stateInfo: `队列模式：DFS\n当前结点: root`,
+                resultDone: false
+            });
+
+            function dfs(level, weight, value, parentId, path, nodeId) {
+                const current = nodes.find(n => n.id === nodeId);
+                current.status = 'active';
+
+                snapshot(localSteps, nodes, {
+                    algo: 'backtrack',
+                    activeId: nodeId,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [1],
+                    info: `访问结点：level=${level}, weight=${weight}, value=${value}`,
+                    stateInfo: `当前路径: ${path.length ? path.join('') : '∅'}\n当前重量/容量: ${weight}/${cap}`,
+                    resultDone: false
+                });
+
+                if (weight > cap) {
+                    current.status = 'pruned';
+                    snapshot(localSteps, nodes, {
+                        algo: 'backtrack',
+                        activeId: nodeId,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [2],
+                        info: `剪枝：当前重量 ${weight} 超过容量 ${cap}。`,
+                        stateInfo: `原因：不可行解（超重）`,
+                        resultDone: false
+                    });
+                    return;
+                }
+
+                if (value > bestValue) {
+                    bestValue = value;
+                    bestPath = path.slice();
+                    bestNodeId = nodeId;
+                    current.status = 'best';
+                    snapshot(localSteps, nodes, {
+                        algo: 'backtrack',
+                        activeId: nodeId,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [3],
+                        info: `更新最优：bestValue = ${bestValue}`,
+                        stateInfo: `最优路径: ${bestPath.join('')}（1取0不取）`,
+                        resultDone: false
+                    });
+                }
+
+                if (level === sortedItems.length) {
+                    if (current.status !== 'best') current.status = 'normal';
+                    snapshot(localSteps, nodes, {
+                        algo: 'backtrack',
+                        activeId: nodeId,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [4],
+                        info: '到达叶子层，回溯。',
+                        stateInfo: `叶子结点`,
+                        resultDone: false
+                    });
+                    return;
+                }
+
+                const optimistic = value + suffix[level];
+                if (optimistic <= bestValue) {
+                    current.status = 'pruned';
+                    snapshot(localSteps, nodes, {
+                        algo: 'backtrack',
+                        activeId: nodeId,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [5],
+                        info: `剪枝：上界 ${optimistic} ≤ 当前最优 ${bestValue}。`,
+                        stateInfo: '原因：最优上界无法改进',
+                        resultDone: false
+                    });
+                    return;
+                }
+
+                const item = sortedItems[level];
+                const includePath = path.concat('1');
+                const includeNode = createNode(nodeId, level + 1, level + 1, 1, weight + item.weight, value + item.value, includePath, 'normal');
+                snapshot(localSteps, nodes, {
+                    algo: 'backtrack',
+                    activeId: nodeId,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [6],
+                    info: `扩展左分支（取第${level + 1}个排序后物品）：w+${item.weight}, v+${item.value}`,
+                    stateInfo: `下一步访问 include 分支`,
+                    resultDone: false
+                });
+                dfs(level + 1, weight + item.weight, value + item.value, nodeId, includePath, includeNode.id);
+
+                const excludePath = path.concat('0');
+                const excludeNode = createNode(nodeId, level + 1, level + 1, 0, weight, value, excludePath, 'normal');
+                snapshot(localSteps, nodes, {
+                    algo: 'backtrack',
+                    activeId: nodeId,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [7],
+                    info: `扩展右分支（不取第${level + 1}个排序后物品）。`,
+                    stateInfo: `下一步访问 exclude 分支`,
+                    resultDone: false
+                });
+                dfs(level + 1, weight, value, nodeId, excludePath, excludeNode.id);
+
+                if (current.status === 'active') current.status = 'normal';
+            }
+
+            dfs(0, 0, 0, null, [], root.id);
+
+            snapshot(localSteps, nodes, {
+                algo: 'backtrack',
+                activeId: bestNodeId,
+                bestNodeId,
+                bestValue,
+                bestPath: bestPath.slice(),
+                codeLine: [],
+                info: '搜索结束。',
+                stateInfo: `总步骤: ${localSteps.length}`,
+                resultDone: true,
+                finalItems: sortedItems
+            });
+
+            return localSteps;
+        }
+
+        function buildBranchBoundSteps(sortedItems, cap) {
+            const localSteps = [];
+            const nodes = [];
+            const depthCount = {};
+            let uid = 0;
+            let bestValue = 0;
+            let bestPath = [];
+            let bestNodeId = null;
+
+            function createNode(parentId, depth, level, take, weight, value, path, bound, status) {
+                depthCount[depth] = (depthCount[depth] || 0) + 1;
+                const order = depthCount[depth];
+                const node = {
+                    id: `m${uid++}`,
+                    parentId,
+                    depth,
+                    order,
+                    itemIndex: level,
+                    take,
+                    weight,
+                    value,
+                    path: path.slice(),
+                    bound,
+                    status
+                };
+                nodes.push(node);
+                return node;
+            }
+
+            const rootBound = boundFractional(sortedItems, cap, 0, 0, 0);
+            const root = createNode(null, 0, 0, null, 0, 0, [], rootBound, 'normal');
+            const queue = [{ id: root.id, level: 0, weight: 0, value: 0, path: [], bound: rootBound }];
+
+            snapshot(localSteps, nodes, {
+                algo: 'branchbound',
+                activeId: root.id,
+                bestNodeId,
+                bestValue,
+                bestPath: bestPath.slice(),
+                codeLine: [0],
+                info: `初始化优先队列，root.bound=${rootBound.toFixed(2)}`,
+                stateInfo: `队列大小: ${queue.length}`,
+                resultDone: false
+            });
+
+            while (queue.length) {
+                queue.sort((a, b) => b.bound - a.bound);
+                const u = queue.shift();
+
+                const current = nodes.find(n => n.id === u.id);
+                current.status = 'active';
+
+                snapshot(localSteps, nodes, {
+                    algo: 'branchbound',
+                    activeId: u.id,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [1, 2],
+                    info: `取出上界最大的活结点：level=${u.level}, bound=${u.bound.toFixed(2)}`,
+                    stateInfo: `当前队列大小: ${queue.length}`,
+                    resultDone: false
+                });
+
+                if (u.bound <= bestValue) {
+                    current.status = 'pruned';
+                    snapshot(localSteps, nodes, {
+                        algo: 'branchbound',
+                        activeId: u.id,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [3],
+                        info: `剪枝：结点上界 ${u.bound.toFixed(2)} ≤ bestValue ${bestValue}`,
+                        stateInfo: '原因：上界不可改进',
+                        resultDone: false
+                    });
+                    continue;
+                }
+
+                if (u.level === sortedItems.length) {
+                    if (current.status !== 'best') current.status = 'normal';
+                    continue;
+                }
+
+                const item = sortedItems[u.level];
+                const nextLevel = u.level + 1;
+
+                const inWeight = u.weight + item.weight;
+                const inValue = u.value + item.value;
+                const inPath = u.path.concat('1');
+                const inBound = boundFractional(sortedItems, cap, nextLevel, inWeight, inValue);
+                const inNode = createNode(u.id, nextLevel, nextLevel, 1, inWeight, inValue, inPath, inBound, 'normal');
+
+                snapshot(localSteps, nodes, {
+                    algo: 'branchbound',
+                    activeId: inNode.id,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [4],
+                    info: `生成 include 子结点：w=${inWeight}, v=${inValue}, bound=${inBound.toFixed(2)}`,
+                    stateInfo: `决策：取第${nextLevel}个排序后物品`,
+                    resultDone: false
+                });
+
+                if (inWeight <= cap && inValue > bestValue) {
+                    bestValue = inValue;
+                    bestPath = inPath.slice();
+                    bestNodeId = inNode.id;
+                    inNode.status = 'best';
+                    snapshot(localSteps, nodes, {
+                        algo: 'branchbound',
+                        activeId: inNode.id,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [5],
+                        info: `更新最优：bestValue = ${bestValue}`,
+                        stateInfo: `最优路径: ${bestPath.join('')}`,
+                        resultDone: false
+                    });
+                }
+
+                if (inWeight <= cap && inBound > bestValue) {
+                    queue.push({ id: inNode.id, level: nextLevel, weight: inWeight, value: inValue, path: inPath, bound: inBound });
+                    snapshot(localSteps, nodes, {
+                        algo: 'branchbound',
+                        activeId: inNode.id,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [6],
+                        info: 'include 子结点入队。',
+                        stateInfo: `当前队列大小: ${queue.length}`,
+                        resultDone: false
+                    });
+                } else if (inNode.status !== 'best') {
+                    inNode.status = 'pruned';
+                }
+
+                const exWeight = u.weight;
+                const exValue = u.value;
+                const exPath = u.path.concat('0');
+                const exBound = boundFractional(sortedItems, cap, nextLevel, exWeight, exValue);
+                const exNode = createNode(u.id, nextLevel, nextLevel, 0, exWeight, exValue, exPath, exBound, 'normal');
+
+                snapshot(localSteps, nodes, {
+                    algo: 'branchbound',
+                    activeId: exNode.id,
+                    bestNodeId,
+                    bestValue,
+                    bestPath: bestPath.slice(),
+                    codeLine: [4],
+                    info: `生成 exclude 子结点：w=${exWeight}, v=${exValue}, bound=${exBound.toFixed(2)}`,
+                    stateInfo: `决策：不取第${nextLevel}个排序后物品`,
+                    resultDone: false
+                });
+
+                if (exBound > bestValue) {
+                    queue.push({ id: exNode.id, level: nextLevel, weight: exWeight, value: exValue, path: exPath, bound: exBound });
+                    snapshot(localSteps, nodes, {
+                        algo: 'branchbound',
+                        activeId: exNode.id,
+                        bestNodeId,
+                        bestValue,
+                        bestPath: bestPath.slice(),
+                        codeLine: [6],
+                        info: 'exclude 子结点入队。',
+                        stateInfo: `当前队列大小: ${queue.length}`,
+                        resultDone: false
+                    });
+                } else {
+                    exNode.status = 'pruned';
+                }
+
+                if (current.status === 'active') current.status = 'normal';
+            }
+
+            snapshot(localSteps, nodes, {
+                algo: 'branchbound',
+                activeId: bestNodeId,
+                bestNodeId,
+                bestValue,
+                bestPath: bestPath.slice(),
+                codeLine: [],
+                info: '搜索结束。',
+                stateInfo: `总步骤: ${localSteps.length}`,
+                resultDone: true,
+                finalItems: sortedItems
+            });
+
+            return localSteps;
+        }
+
+        function initCodeBox() {
+            const lines = currentAlgo === 'backtrack' ? btCodeLines : bbCodeLines;
+            const codeEl = document.getElementById('code-content');
+            codeEl.innerHTML = '';
+            lines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = String(idx);
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+        function highlightCode(lineList) {
+            const lines = document.querySelectorAll('.code-line');
+            lines.forEach(el => el.classList.remove('code-active'));
+            (lineList || []).forEach(idx => {
+                const target = document.querySelector(`.code-line[data-line="${idx}"]`);
+                if (target) target.classList.add('code-active');
+            });
+        }
+
+        function nodeColor(node, step) {
+            if (node.id === step.activeId) return colorActive;
+            if (step.bestNodeId && node.id === step.bestNodeId) return colorBest;
+            if (node.status === 'pruned') return colorPruned;
+            if (node.status === 'best') return colorBest;
+            return colorNormal;
+        }
+
+        function renderTree(step) {
+            const nodes = step.nodes;
+            if (!nodes.length) {
+                treeLayer.selectAll('*').remove();
+                return;
+            }
+
+            const maxDepth = d3.max(nodes, d => d.depth) || 0;
+            const width = Math.max(900, 260 + nodes.length * 22);
+            const height = Math.max(560, 220 + maxDepth * 95);
+            svg.attr('width', width);
+            svg.attr('height', height);
+            const animMs = Math.max(220, Math.min(520, Math.floor(speed * 0.5)));
+            const t = d3.transition().duration(animMs).ease(animEase);
+
+            const depthGroups = d3.group(nodes, d => d.depth);
+            const positioned = [];
+            depthGroups.forEach((arr, depth) => {
+                arr.sort((a, b) => a.order - b.order);
+                const count = arr.length;
+                arr.forEach((node, idx) => {
+                    positioned.push({
+                        ...node,
+                        x: (width - 80) * (idx + 1) / (count + 1),
+                        y: 60 + depth * 90
+                    });
+                });
+            });
+
+            const mapPos = new Map(positioned.map(n => [n.id, n]));
+            const edges = positioned.filter(n => n.parentId).map(n => ({
+                source: mapPos.get(n.parentId),
+                target: n,
+                take: n.take
+            }));
+
+            treeLayer.selectAll('line.edge')
+                .data(edges, d => d.target.id)
+                .join(
+                    enter => enter.append('line')
+                        .attr('class', 'edge')
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.source.x)
+                        .attr('y2', d => d.source.y)
+                        .attr('opacity', 0)
+                        .call(sel => sel.transition(t)
+                            .attr('x2', d => d.target.x)
+                            .attr('y2', d => d.target.y)
+                            .attr('opacity', 1)),
+                    update => update
+                        .call(sel => sel.transition(t)
+                            .attr('x1', d => d.source.x)
+                            .attr('y1', d => d.source.y)
+                            .attr('x2', d => d.target.x)
+                            .attr('y2', d => d.target.y)
+                            .attr('opacity', 1)),
+                    exit => exit
+                        .call(sel => sel.transition(t)
+                            .attr('opacity', 0)
+                            .remove())
+                );
+
+            treeLayer.selectAll('text.edge-label')
+                .data(edges, d => d.target.id)
+                .join(
+                    enter => enter.append('text')
+                        .attr('class', 'edge-label')
+                        .attr('x', d => d.source.x)
+                        .attr('y', d => d.source.y)
+                        .attr('opacity', 0)
+                        .text(d => d.take === 1 ? '1' : '0')
+                        .call(sel => sel.transition(t)
+                            .attr('x', d => (d.source.x + d.target.x) / 2)
+                            .attr('y', d => (d.source.y + d.target.y) / 2 - 4)
+                            .attr('opacity', 1)),
+                    update => update
+                        .text(d => d.take === 1 ? '1' : '0')
+                        .call(sel => sel.transition(t)
+                            .attr('x', d => (d.source.x + d.target.x) / 2)
+                            .attr('y', d => (d.source.y + d.target.y) / 2 - 4)
+                            .attr('opacity', 1)),
+                    exit => exit
+                        .call(sel => sel.transition(t)
+                            .attr('opacity', 0)
+                            .remove())
+                );
+
+            const nodeG = treeLayer.selectAll('g.node')
+                .data(positioned, d => d.id)
+                .join(
+                    enter => {
+                        const gNode = enter.append('g').attr('class', 'node')
+                            .attr('transform', d => {
+                                const p = d.parentId ? mapPos.get(d.parentId) : d;
+                                return `translate(${p.x},${p.y})`;
+                            })
+                            .attr('opacity', 0);
+
+                        gNode.append('circle')
+                            .attr('class', 'node-circle')
+                            .attr('r', 14)
+                            .attr('fill', d => nodeColor(d, step));
+
+                        gNode.append('text')
+                            .attr('class', 'node-text')
+                            .attr('dy', '0.3em')
+                            .text(d => d.value);
+
+                        gNode.append('text')
+                            .attr('class', 'node-label')
+                            .attr('dy', '-1.9em')
+                            .text(d => `w=${d.weight}`);
+
+                        return gNode.call(sel => sel.transition(t)
+                            .attr('transform', d => `translate(${d.x},${d.y})`)
+                            .attr('opacity', 1));
+                    },
+                    update => update.call(sel => sel.transition(t)
+                        .attr('transform', d => `translate(${d.x},${d.y})`)
+                        .attr('opacity', 1)),
+                    exit => exit.call(sel => sel.transition(t)
+                        .attr('opacity', 0)
+                        .remove())
+                );
+
+            nodeG.select('circle.node-circle')
+                .transition(t)
+                .attr('r', 17)
+                .attr('fill', d => nodeColor(d, step));
+
+            nodeG.select('text.node-text')
+                .text(d => d.value);
+
+            nodeG.select('text.node-label')
+                .text(d => `w=${d.weight}`);
+        }
+
+        function pickedItemsByPath(pathBits, sortedItems) {
+            const picks = [];
+            for (let i = 0; i < pathBits.length; i++) {
+                if (pathBits[i] === '1' && sortedItems[i]) picks.push(sortedItems[i]);
+            }
+            return picks;
+        }
+
+        function renderResult(step) {
+            const resultEl = document.getElementById('result');
+            const sortedItems = step.finalItems || items;
+            const chosen = pickedItemsByPath(step.bestPath || [], sortedItems);
+            const totalW = chosen.reduce((sum, it) => sum + it.weight, 0);
+            const ids = chosen.map(it => `#${it.id}`).join('、') || '-';
+            resultEl.textContent = `最优价值：${step.bestValue}\n已选物品（按原输入编号）：${ids}\n总重量：${totalW} / ${capacity}`;
+        }
+
+        function renderStep() {
+            if (!steps.length) return;
+            const step = steps[stepIndex];
+            document.getElementById('step-info').textContent = step.info;
+            document.getElementById('state-info').textContent = step.stateInfo || '当前状态：-';
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine || []);
+            renderResult(step);
+            renderTree(step);
+        }
+
+        function pausePlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            pausePlay();
+            timer = setInterval(() => {
+                if (stepIndex < steps.length - 1) {
+                    stepIndex += 1;
+                    renderStep();
+                } else {
+                    pausePlay();
+                }
+            }, speed);
+        }
+
+        function resetToStart() {
+            pausePlay();
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function applyData() {
+            const parsedItems = parseItems(document.getElementById('input-items').value);
+            const cap = Number(document.getElementById('input-capacity').value);
+            currentAlgo = document.getElementById('algo-select').value;
+
+            if (!parsedItems || !Number.isFinite(cap) || cap <= 0) {
+                alert('输入格式错误。物品请用“重量:价值”，如 2:12,1:10。容量需为正整数。');
+                return;
+            }
+
+            items = normalizeItems(parsedItems);
+            capacity = Math.floor(cap);
+            initCodeBox();
+            pausePlay();
+
+            if (currentAlgo === 'backtrack') {
+                steps = buildBacktrackingSteps(items, capacity);
+            } else {
+                steps = buildBranchBoundSteps(items, capacity);
+            }
+
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-apply').addEventListener('click', applyData);
+            document.getElementById('btn-play').addEventListener('click', play);
+            document.getElementById('btn-pause').addEventListener('click', pausePlay);
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.max(0, stepIndex - 1);
+                renderStep();
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+                renderStep();
+            });
+            document.getElementById('btn-reset').addEventListener('click', resetToStart);
+
+            document.getElementById('algo-select').addEventListener('change', () => {
+                applyData();
+            });
+
+            const speedInput = document.getElementById('speed');
+            const speedLabel = document.getElementById('speed-label');
+            speedInput.addEventListener('input', e => {
+                speed = Number(e.target.value);
+                speedLabel.textContent = `${speed}ms`;
+                if (timer) play();
+            });
+        }
+
+        bindEvents();
+        applyData();
+    </script>
+</body>
+
+</html>
