@@ -280,15 +280,15 @@
 
             for (let i = 0; i < n - 1; i++) {
                 for (let j = 0; j < n - 1 - i; j++) {
-                    steps.push({ type: 'compare', i: j, j: j + 1, arr: arr.slice() });
+                    steps.push({ type: 'compare', i: j, j: j + 1, arr: arr.slice(), codeLine: [2] });
                     if (arr[j] > arr[j + 1]) {
                         [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
-                        steps.push({ type: 'swap', i: j, j: j + 1, arr: arr.slice() });
+                        steps.push({ type: 'swap', i: j, j: j + 1, arr: arr.slice(), codeLine: [3] });
                     }
                 }
-                steps.push({ type: 'sorted', i: i + 1, arr: arr.slice() });
+                steps.push({ type: 'sorted', i: i + 1, arr: arr.slice(), codeLine: [0, 1] });
             }
-            steps.push({ type: 'done', arr: arr.slice() });
+            steps.push({ type: 'done', arr: arr.slice(), codeLine: [] });
         }
 
         function getStepMessage(state, arr) {
@@ -435,16 +435,7 @@
                 const lines = codeEl.querySelectorAll('.code-line');
                 lines.forEach(l => l.classList.remove('code-active'));
 
-                let active = [];
-                if (!state || !state.type) {
-                    active = [];
-                } else if (state.type === 'compare') {
-                    active = [2];
-                } else if (state.type === 'swap') {
-                    active = [3];
-                } else if (state.type === 'done') {
-                    active = [];
-                }
+                const active = Array.isArray(state?.codeLine) ? state.codeLine : [];
 
                 active.forEach(idx => {
                     const lineEl = codeEl.querySelector(`.code-line[data-line="${idx}"]`);

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>实现方法</title>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" />
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --line: #dce3ef;
+            --text: #1f2a44;
+            --muted: #5f6b86;
+            --primary: #2f6ff0;
+            --head: #eef3ff;
+            --shadow: 0 12px 30px rgba(31, 42, 68, 0.08);
+            --shadow-hover: 0 18px 34px rgba(31, 42, 68, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 28px;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at 0% 0%, rgba(47, 111, 240, 0.08), transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(47, 111, 240, 0.08), transparent 36%),
+                var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            gap: 14px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .card.hero {
+            background: linear-gradient(165deg, #ffffff 0%, #f5f8ff 100%);
+        }
+
+        .hero h1,
+        .hero p {
+            text-align: center;
+        }
+
+        .hero-content {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 4fr 6fr;
+            gap: 14px;
+            align-items: stretch;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+            line-height: 1.3;
+            letter-spacing: 0.3px;
+        }
+
+        h2 {
+            margin: 0 0 10px;
+            font-size: 20px;
+            line-height: 1.4;
+            padding-left: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid #c8d8ff;
+            background: #f3f7ff;
+            color: #2558bf;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .list {
+            margin: 8px 0 0;
+            padding-left: 18px;
+            color: var(--text);
+            line-height: 1.75;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: hidden;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--line);
+            border-right: 1px solid var(--line);
+            vertical-align: top;
+            text-align: left;
+            padding: 10px 12px;
+            line-height: 1.7;
+        }
+
+        th:last-child,
+        td:last-child {
+            border-right: none;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        th {
+            background: var(--head);
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fbfcff;
+        }
+
+        tbody tr:hover {
+            background: #f4f8ff;
+        }
+
+        .mono {
+            font-family: Consolas, "Courier New", monospace;
+            background: #f7f8fc;
+            border: 1px solid #e3e8f4;
+            border-radius: 6px;
+            padding: 0 6px;
+        }
+
+        .tip {
+            font-size: 13px;
+            color: #4d5f7f;
+            margin-top: 8px;
+        }
+
+        .mermaid-box {
+            overflow-x: auto;
+            border: 1px dashed var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mermaid {
+            min-width: 300px;
+            margin: 0 auto;
+            width: 100%;
+            text-align: center;
+        }
+
+        .mermaid svg {
+            display: block;
+            margin: 0 auto !important;
+        }
+
+        .code-example {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #0b1220;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .code-title {
+            padding: 10px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #dbe8ff;
+            background: #111a2a;
+            border-bottom: 1px solid #263247;
+        }
+
+        .code-example pre {
+            margin: 0;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.7;
+            font-family: Consolas, "Courier New", monospace;
+            white-space: pre;
+            overflow: auto;
+            color: #d6e3ff;
+            background: #0b1220;
+            flex: 1;
+        }
+
+        .code-example pre code.hljs {
+            background: transparent;
+            padding: 0;
+        }
+
+        @media (max-width: 980px) {
+            body {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 14px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+
+            .hero-content {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="wrap">
+
+        <section class="card hero">
+            <h1>实现步骤概览</h1>
+            <div class="hero-content">
+                <div class="mermaid-box">
+                    <div class="mermaid">
+                        flowchart TD
+                        A( 设计代码块) --> B( 读取数据并根据算法分析所执行流程保存到快照中)
+                        B --> C( 根据现有数据初始化)
+                        C --> D( 绑定各个按键)
+                        D --> E( 读取快照并逐步演示)
+
+                        click A showStepCode "查看步骤1代码"
+                        click B showStepCode "查看步骤2代码"
+                        click C showStepCode "查看步骤3代码"
+                        click D showStepCode "查看步骤4代码"
+                        click E showStepCode "查看步骤5代码"
+
+                        classDef main fill:#eef3ff,stroke:#2f6ff0,color:#1f2a44,stroke-width:1px;
+                        class A,B,C,D,E main;
+                    </div>
+                </div>
+
+                <div class="code-example">
+                    <div class="code-title" id="step-code-title">示例代码：步骤1（设计代码块）</div>
+                    <pre><code id="step-code-content" class="language-javascript"></code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>1）冒泡排序</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">type</span></td>
+                        <td>当前步骤类型：<span class="mono">compare / swap / sorted / done</span>。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">i</span></td>
+                        <td>当前操作的第一个下标（比较或交换时的左位置）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">j</span></td>
+                        <td>当前操作的第二个下标（比较或交换时的右位置）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>需要高亮的伪代码行号列表。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">arr</span></td>
+                        <td>该步骤下数组完整快照，用于渲染当前画面。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>2）快速排序</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">arr</span></td>
+                        <td>当前数组快照。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>该步骤的解释文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>需要高亮的伪代码行号列表。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">l, r</span></td>
+                        <td>当前递归处理区间边界。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">pivotIndex</span></td>
+                        <td>当前基准值（pivot）所在下标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">i, j</span></td>
+                        <td>分区扫描指针位置。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">doneList</span></td>
+                        <td>已确定最终位置的下标集合（数组形式）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">done</span></td>
+                        <td>可选，是否进入最终完成状态。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>3）归并排序</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">arr</span></td>
+                        <td>当前数组快照。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">l, mid, r</span></td>
+                        <td>当前区间及中点。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">write</span></td>
+                        <td>当前写回到原数组的下标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">doneRange</span></td>
+                        <td>当前已确认有序的连续区间。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">done</span></td>
+                        <td>可选，整体排序是否完成。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>4）二分查找</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">arr</span></td>
+                        <td>有序数组快照。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">target</span></td>
+                        <td>目标值。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">low, high</span></td>
+                        <td>当前查找区间边界。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">mid</span></td>
+                        <td>当前中点下标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">hit</span></td>
+                        <td>命中下标（未命中通常为 -1）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">done</span></td>
+                        <td>可选，查找是否结束。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>5）线性时间选择</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">arr</span></td>
+                        <td>当前数组快照。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">l, r</span></td>
+                        <td>当前递归区间边界。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">pivot</span></td>
+                        <td>当前选定主元值（中位数的中位数）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">lt, eq</span></td>
+                        <td>三路划分后“&lt;pivot”和“=pivot”区间的分界下标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">k</span></td>
+                        <td>目标秩对应的下标（第 k+1 小）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">answer</span></td>
+                        <td>可选，最终选出的第 k 小值。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">done</span></td>
+                        <td>该步骤是否已得到最终答案。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>6）哈夫曼编码</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">nodes</span></td>
+                        <td>当前所有结点映射表（key 为结点 id）；每个结点含 <span class="mono">id, label, weight, left, right, order</span>。
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">activeIds</span></td>
+                        <td>当前“森林”中仍活跃的根结点 id 集合。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">type</span></td>
+                        <td>步骤类型：<span class="mono">init / pick / merge / done</span>。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">selectedIds</span></td>
+                        <td>本轮被选中的两个最小权结点 id。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">newId</span></td>
+                        <td>本轮新合并出的结点 id（或最终根 id）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codes</span></td>
+                        <td>可选，最终字符编码表。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">wpl</span></td>
+                        <td>可选，最终带权路径长度。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>7）最长公共子序列</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">dp</span></td>
+                        <td>当前 DP 矩阵完整快照。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">message</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">phase</span></td>
+                        <td>阶段标记（如填表、回溯、完成）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">activeCell</span></td>
+                        <td>当前处理的 DP 单元坐标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">fromCell</span></td>
+                        <td>当前转移来源单元坐标。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">trace</span></td>
+                        <td>回溯路径坐标序列。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">cursor</span></td>
+                        <td>回溯阶段当前光标位置。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">moveTo</span></td>
+                        <td>回溯阶段下一步将移动到的位置。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">lcsPartial</span></td>
+                        <td>当前已构造的 LCS 片段。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">lcsFinal</span></td>
+                        <td>可选，最终 LCS 串。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>8）矩阵连乘</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">m</span></td>
+                        <td>最优代价矩阵快照（m[i][j] 为子链最小乘法次数）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">s</span></td>
+                        <td>最优划分点矩阵快照（s[i][j] 为最佳 k）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">type</span></td>
+                        <td>步骤类型（init/len/target/try/update/done）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">target</span></td>
+                        <td>当前正在求解的目标状态坐标 [i, j]。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">sources</span></td>
+                        <td>当前转移依赖的子问题坐标列表。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">best</span></td>
+                        <td>当前被视为最优的目标状态标记。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">current</span></td>
+                        <td>当前尝试的划分信息 [i, k, j]。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">stateText</span></td>
+                        <td>当前状态摘要文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">bestValue</span></td>
+                        <td>可选，最终全局最优代价。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">bestPlan</span></td>
+                        <td>可选，最终最优加括号方案。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>9）0-1背包</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>字段</th>
+                        <th>含义</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="mono">nodes</span></td>
+                        <td>状态树结点数组快照；结点常见字段有 <span class="mono">id, parentId, depth, order, itemIndex, take, weight,
+                                value, path, status</span>，分支限界额外有 <span class="mono">bound</span>。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">algo</span></td>
+                        <td>当前算法模式：<span class="mono">backtrack</span> 或 <span class="mono">branchbound</span>。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">activeId</span></td>
+                        <td>当前正在访问/展开的结点 id。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">bestNodeId</span></td>
+                        <td>当前最优解对应的结点 id。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">bestValue</span></td>
+                        <td>当前已知最优总价值。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">bestPath</span></td>
+                        <td>当前最优决策路径（位串，1 取 0 不取）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">codeLine</span></td>
+                        <td>高亮代码行号。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">info</span></td>
+                        <td>步骤讲解文本。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">stateInfo</span></td>
+                        <td>状态补充文本（队列大小、剪枝原因等）。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">resultDone</span></td>
+                        <td>是否到达最终结果步骤。</td>
+                    </tr>
+                    <tr>
+                        <td><span class="mono">finalItems</span></td>
+                        <td>可选，结束时用于还原原物品信息的列表。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            securityLevel: 'loose',
+            theme: 'default',
+            flowchart: {
+                curve: 'basis',
+                nodeSpacing: 36,
+                rankSpacing: 56,
+                htmlLabels: true
+            },
+            themeVariables: {
+                primaryColor: '#eef3ff',
+                primaryTextColor: '#1f2a44',
+                primaryBorderColor: '#2f6ff0',
+                lineColor: '#5f6b86',
+                clusterBkg: '#ffffff',
+                clusterBorder: '#dce3ef',
+                fontFamily: 'Segoe UI, PingFang SC, Microsoft YaHei, sans-serif'
+            }
+        });
+
+        const stepCodeMap = {
+            A: {
+                title: '示例代码：步骤1（设计代码块）',
+                code: `int selectK(int a[], int l, int r, int k) {
+    if (l == r) return a[l];
+    int pivot = medianOfMedians(a, l, r);
+    partition(a, l, r, pivot, &ltEnd, &eqEnd);
+    if (k < ltEnd) return selectK(a, l, ltEnd - 1, k);
+    if (k <= eqEnd) return pivot;
+            return selectK(a, eqEnd + 1, r, k);
+            }`
+            },
+            B: {
+                title: '示例代码：步骤2（读取数据并分析流程后保存快照）',
+                code: `function buildSteps(initArr, k1) {
+  const local = [];
+  const arr = initArr.slice();
+    const k = k1 - 1;
+    local.push({ arr: arr.slice(), info: '初始化', codeLine: [0], l: 0, r: arr.length - 1, k });
+
+    function selectRec(l, r) {
+        const pivot = medianOfMedians(arr, l, r);
+        const [ltEnd, eqEnd] = partition(arr, l, r, pivot);
+        local.push({ arr: arr.slice(), info: '划分完成', codeLine: [3], l, r, pivot, lt: ltEnd, eq: eqEnd, k });
+        if (k < ltEnd) return selectRec(l, ltEnd - 1);
+        if (k <= eqEnd) return pivot;
+        return selectRec(eqEnd + 1, r);
+    }
+
+    const answer = selectRec(0, arr.length - 1);
+    local.push({ arr: arr.slice(), info: '选择完成', codeLine: [6], done: true, answer, k });
+    return local;
+}`
+            },
+            C: {
+                title: '示例代码：步骤3（根据现有数据初始化）',
+                code: `function applyData() {
+  const arr = parseInput(inputData.value);
+  const k = Number(inputK.value);
+    if (!arr || !Number.isInteger(k) || k < 1 || k > arr.length) return;
+  steps = buildSteps(arr, k);
+  stepIndex = 0;
+    pause();
+  render(steps[0]);
+}`
+            },
+            D: {
+                title: '示例代码：步骤4（绑定各个按键）',
+                code: `btnApply.addEventListener('click', applyData);
+btnPlay.addEventListener('click', play);
+btnPause.addEventListener('click', pause);
+btnPrev.addEventListener('click', () => {
+    pause();
+    stepIndex = Math.max(0, stepIndex - 1);
+    render(steps[stepIndex]);
+});
+btnNext.addEventListener('click', () => {
+    pause();
+    stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+    render(steps[stepIndex]);
+});
+btnReset.addEventListener('click', () => {
+    pause();
+    stepIndex = 0;
+    render(steps[0]);
+});`
+            },
+            E: {
+                title: '示例代码：步骤5（读取快照并逐步演示）',
+                code: `function render(step) {
+  drawArray(step.arr);
+  highlightCode(step.codeLine);
+  stepInfo.textContent = step.info;
+}
+
+function play() {
+    pause();
+    timer = setInterval(() => {
+        if (stepIndex < steps.length - 1) {
+            stepIndex += 1;
+            render(steps[stepIndex]);
+        } else {
+            pause();
+        }
+    }, speed);
+}`
+            }
+        };
+
+        function showStepCode(stepId) {
+            const entry = stepCodeMap[stepId];
+            if (!entry) return;
+            const titleEl = document.getElementById('step-code-title');
+            const codeEl = document.getElementById('step-code-content');
+            if (titleEl) titleEl.textContent = entry.title;
+            if (codeEl) {
+                if (window.hljs) {
+                    codeEl.removeAttribute('data-highlighted');
+                    codeEl.classList.remove('hljs');
+                    const result = hljs.highlight(entry.code, { language: 'javascript' });
+                    codeEl.innerHTML = result.value;
+                    codeEl.classList.add('hljs', 'language-javascript');
+                } else {
+                    codeEl.textContent = entry.code;
+                }
+            }
+        }
+
+        window.showStepCode = showStepCode;
+        showStepCode('B');
+    </script>
+</body>
+
+</html>
