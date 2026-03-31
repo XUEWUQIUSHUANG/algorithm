@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>0-1背包（回溯法 & 分支限界法）</title>
+    <title>0-1背包（回溯法 & 分支限界法 & 动态规划法）</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -177,6 +177,39 @@
             text-anchor: middle;
         }
 
+        .dp-cell {
+            fill: #fff;
+            stroke: #d8d8d8;
+            stroke-width: 1;
+        }
+
+        .dp-cell.active {
+            fill: #ffeaa7;
+        }
+
+        .dp-cell.from {
+            fill: #d6eaf8;
+        }
+
+        .dp-cell.path {
+            fill: #d5f5e3;
+        }
+
+        .dp-value {
+            fill: #2c3e50;
+            font-size: 14px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .dp-head {
+            fill: #333;
+            font-size: 14px;
+            font-weight: 600;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
         .legend {
             display: flex;
             gap: 12px;
@@ -215,7 +248,7 @@
 </head>
 
 <body>
-    <h1>0-1背包可视化（回溯法 & 分支限界法）</h1>
+    <h1>0-1背包可视化（回溯法 & 分支限界法 & 动态规划法）</h1>
 
     <div class="panel" id="input-row">
         <label>物品（格式：重量:价值，用逗号分隔）：
@@ -228,6 +261,7 @@
             <select id="algo-select">
                 <option value="backtrack">回溯法</option>
                 <option value="branchbound">分支限界法</option>
+                <option value="dp">动态规划法</option>
             </select>
         </label>
         <button id="btn-apply">应用数据</button>
@@ -253,11 +287,16 @@
             <div id="state-info">当前状态：-</div>
             <div id="result">最优结果：-</div>
             <pre id="code-box"><code id="code-content"></code></pre>
-            <div class="legend">
+            <div class="legend" id="legend-tree">
                 <span class="tag"><span class="swatch" style="background:steelblue"></span>普通结点</span>
                 <span class="tag"><span class="swatch" style="background:#e74c3c"></span>当前访问</span>
                 <span class="tag"><span class="swatch" style="background:#2ecc71"></span>当前最优</span>
                 <span class="tag"><span class="swatch" style="background:#95a5a6"></span>剪枝结点</span>
+            </div>
+            <div class="legend" id="legend-dp" style="display:none;">
+                <span class="tag"><span class="swatch" style="background:#ffeaa7"></span>当前计算格</span>
+                <span class="tag"><span class="swatch" style="background:#d6eaf8"></span>来源格</span>
+                <span class="tag"><span class="swatch" style="background:#d5f5e3"></span>回溯路径</span>
             </div>
         </div>
 
@@ -290,10 +329,22 @@
             '}'
         ];
 
+        const dpCodeLines = [
+            'for (i = 0; i <= n; i++) dp[i][0] = 0;',
+            'for (c = 0; c <= C; c++) dp[0][c] = 0;',
+            'for (i = 1; i <= n; i++) {',
+            '  for (c = 0; c <= C; c++) {',
+            '    if (w[i] <= c) dp[i][c] = max(dp[i-1][c], dp[i-1][c-w[i]] + v[i]);',
+            '    else dp[i][c] = dp[i-1][c];',
+            '  }',
+            '}',
+            '从 dp[n][C] 回溯得到选择方案'
+        ];
+
         const svg = d3.select('#chart');
         const g = svg.append('g').attr('transform', 'translate(20,20)');
         const treeLayer = g.append('g').attr('class', 'tree-layer');
-        g.append('text')
+        const chartTitle = g.append('text')
             .attr('x', 6)
             .attr('y', 18)
             .attr('fill', '#34495e')
@@ -749,8 +800,160 @@
             return localSteps;
         }
 
+        function clone2D(mat) {
+            return mat.map(row => row.slice());
+        }
+
+        function buildDPSteps(sortedItems, cap) {
+            const localSteps = [];
+            const n = sortedItems.length;
+            const dp = Array.from({ length: n + 1 }, () => Array(cap + 1).fill(0));
+
+            localSteps.push({
+                algo: 'dp',
+                nodes: [],
+                bestValue: 0,
+                bestPath: [],
+                bestNodeId: null,
+                codeLine: [0, 1],
+                info: '初始化：dp[i][0] 与 dp[0][c] 均为 0。',
+                stateInfo: `表规模：(${n + 1}) x (${cap + 1})`,
+                resultDone: false,
+                dpTable: clone2D(dp),
+                activeCell: null,
+                fromCells: [],
+                traceCells: []
+            });
+
+            for (let i = 1; i <= n; i++) {
+                const item = sortedItems[i - 1];
+                for (let c = 0; c <= cap; c++) {
+                    if (item.weight <= c) {
+                        const skip = dp[i - 1][c];
+                        const take = dp[i - 1][c - item.weight] + item.value;
+                        dp[i][c] = Math.max(skip, take);
+                        localSteps.push({
+                            algo: 'dp',
+                            nodes: [],
+                            bestValue: dp[i][c],
+                            bestPath: [],
+                            bestNodeId: null,
+                            codeLine: [2, 3, 4],
+                            info: `填表 dp[${i}][${c}]：max(不取=${skip}, 取=${take}) = ${dp[i][c]}`,
+                            stateInfo: `处理第${i}个物品(#${item.id}, w=${item.weight}, v=${item.value})`,
+                            resultDone: false,
+                            dpTable: clone2D(dp),
+                            activeCell: { i, c },
+                            fromCells: [{ i: i - 1, c }, { i: i - 1, c: c - item.weight }],
+                            traceCells: []
+                        });
+                    } else {
+                        dp[i][c] = dp[i - 1][c];
+                        localSteps.push({
+                            algo: 'dp',
+                            nodes: [],
+                            bestValue: dp[i][c],
+                            bestPath: [],
+                            bestNodeId: null,
+                            codeLine: [2, 3, 5],
+                            info: `填表 dp[${i}][${c}]：容量不足（w=${item.weight} > ${c}），继承上方值 ${dp[i][c]}`,
+                            stateInfo: `处理第${i}个物品(#${item.id}, w=${item.weight}, v=${item.value})`,
+                            resultDone: false,
+                            dpTable: clone2D(dp),
+                            activeCell: { i, c },
+                            fromCells: [{ i: i - 1, c }],
+                            traceCells: []
+                        });
+                    }
+                }
+            }
+
+            let c = cap;
+            const pathBits = Array(n).fill('0');
+            const traceCells = [{ i: n, c }];
+            localSteps.push({
+                algo: 'dp',
+                nodes: [],
+                bestValue: dp[n][cap],
+                bestPath: pathBits.slice(),
+                bestNodeId: null,
+                codeLine: [8],
+                info: `填表完成：dp[${n}][${cap}] = ${dp[n][cap]}，开始回溯选取方案。`,
+                stateInfo: '从右下角回溯',
+                resultDone: false,
+                dpTable: clone2D(dp),
+                activeCell: { i: n, c },
+                fromCells: [],
+                traceCells: traceCells.slice()
+            });
+
+            for (let i = n; i >= 1; i--) {
+                const item = sortedItems[i - 1];
+                if (item.weight <= c && dp[i][c] === dp[i - 1][c - item.weight] + item.value) {
+                    pathBits[i - 1] = '1';
+                    traceCells.push({ i: i - 1, c: c - item.weight });
+                    localSteps.push({
+                        algo: 'dp',
+                        nodes: [],
+                        bestValue: dp[n][cap],
+                        bestPath: pathBits.slice(),
+                        bestNodeId: null,
+                        codeLine: [8],
+                        info: `回溯：选择第${i}个物品(#${item.id})，容量 ${c} -> ${c - item.weight}`,
+                        stateInfo: `当前选择位串：${pathBits.join('')}`,
+                        resultDone: false,
+                        dpTable: clone2D(dp),
+                        activeCell: { i, c },
+                        fromCells: [{ i: i - 1, c: c - item.weight }],
+                        traceCells: traceCells.slice()
+                    });
+                    c -= item.weight;
+                } else {
+                    traceCells.push({ i: i - 1, c });
+                    localSteps.push({
+                        algo: 'dp',
+                        nodes: [],
+                        bestValue: dp[n][cap],
+                        bestPath: pathBits.slice(),
+                        bestNodeId: null,
+                        codeLine: [8],
+                        info: `回溯：不选第${i}个物品(#${item.id})，容量保持 ${c}`,
+                        stateInfo: `当前选择位串：${pathBits.join('')}`,
+                        resultDone: false,
+                        dpTable: clone2D(dp),
+                        activeCell: { i, c },
+                        fromCells: [{ i: i - 1, c }],
+                        traceCells: traceCells.slice()
+                    });
+                }
+            }
+
+            localSteps.push({
+                algo: 'dp',
+                nodes: [],
+                bestValue: dp[n][cap],
+                bestPath: pathBits.slice(),
+                bestNodeId: null,
+                codeLine: [],
+                info: '动态规划完成。',
+                stateInfo: `总步骤: ${localSteps.length}`,
+                resultDone: true,
+                finalItems: sortedItems,
+                dpTable: clone2D(dp),
+                activeCell: null,
+                fromCells: [],
+                traceCells: traceCells.slice()
+            });
+
+            return localSteps;
+        }
+
         function initCodeBox() {
-            const lines = currentAlgo === 'backtrack' ? btCodeLines : bbCodeLines;
+            const lines = currentAlgo === 'backtrack'
+                ? btCodeLines
+                : currentAlgo === 'branchbound'
+                    ? bbCodeLines
+                    : dpCodeLines;
             const codeEl = document.getElementById('code-content');
             codeEl.innerHTML = '';
             lines.forEach((line, idx) => {
@@ -769,6 +972,19 @@
                 const target = document.querySelector(`.code-line[data-line="${idx}"]`);
                 if (target) target.classList.add('code-active');
             });
+        }
+
+        function updateLegend(algo) {
+            const treeLegend = document.getElementById('legend-tree');
+            const dpLegend = document.getElementById('legend-dp');
+            if (!treeLegend || !dpLegend) return;
+            if (algo === 'dp') {
+                treeLegend.style.display = 'none';
+                dpLegend.style.display = 'flex';
+            } else {
+                treeLegend.style.display = 'flex';
+                dpLegend.style.display = 'none';
+            }
         }
 
         function nodeColor(node, step) {
@@ -917,6 +1133,84 @@
                 .text(d => `w=${d.weight}`);
         }
 
+        function renderDPTable(step) {
+            treeLayer.selectAll('*').remove();
+
+            const table = step.dpTable || [];
+            const rows = table.length;
+            const cols = rows ? table[0].length : 0;
+            if (!rows || !cols) return;
+
+            const cellW = 42;
+            const cellH = 42;
+            const startY = 80;
+            const tableWidth = cols * cellW;
+            const sidePadding = 90;
+            const width = Math.max(900, tableWidth + sidePadding * 2);
+            const height = Math.max(560, startY + rows * cellH + 120);
+            svg.attr('width', width);
+            svg.attr('height', height);
+
+            const startX = Math.floor((width - tableWidth) / 2);
+
+            const traceSet = new Set((step.traceCells || []).map(p => `${p.i}-${p.c}`));
+            const fromSet = new Set((step.fromCells || []).map(p => `${p.i}-${p.c}`));
+            const activeKey = step.activeCell ? `${step.activeCell.i}-${step.activeCell.c}` : null;
+
+            const cells = [];
+            for (let i = 0; i < rows; i++) {
+                for (let c = 0; c < cols; c++) {
+                    cells.push({ i, c, key: `${i}-${c}` });
+                }
+            }
+
+            treeLayer.selectAll('rect.dp-cell')
+                .data(cells, d => d.key)
+                .join('rect')
+                .attr('x', d => startX + d.c * cellW)
+                .attr('y', d => startY + d.i * cellH)
+                .attr('width', cellW)
+                .attr('height', cellH)
+                .attr('class', d => {
+                    const cls = ['dp-cell'];
+                    if (traceSet.has(d.key)) cls.push('path');
+                    if (fromSet.has(d.key)) cls.push('from');
+                    if (activeKey && d.key === activeKey) cls.push('active');
+                    return cls.join(' ');
+                });
+
+            treeLayer.selectAll('text.dp-value')
+                .data(cells, d => d.key)
+                .join('text')
+                .attr('class', 'dp-value')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('x', d => startX + d.c * cellW + cellW / 2)
+                .attr('y', d => startY + d.i * cellH + cellH / 2)
+                .text(d => table[d.i][d.c]);
+
+            treeLayer.selectAll('text.dp-col-head')
+                .data(d3.range(cols), d => d)
+                .join('text')
+                .attr('class', 'dp-head dp-col-head')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('x', d => startX + d * cellW + cellW / 2)
+                .attr('y', startY - 18)
+                .text(d => d);
+
+            treeLayer.selectAll('text.dp-row-head')
+                .data(d3.range(rows), d => d)
+                .join('text')
+                .attr('class', 'dp-head dp-row-head')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('x', startX - 22)
+                .attr('y', d => startY + d * cellH + cellH / 2)
+                .text(d => d === 0 ? '0' : `#${items[d - 1].id}`);
+
+        }
+
         function pickedItemsByPath(pathBits, sortedItems) {
             const picks = [];
             for (let i = 0; i < pathBits.length; i++) {
@@ -942,7 +1236,15 @@
             document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
             highlightCode(step.codeLine || []);
             renderResult(step);
-            renderTree(step);
+            if (step.algo === 'dp') {
+                chartTitle.text('DP 表（单元格值：在容量 c 下，前 i 个物品可达到的最大价值）');
+                updateLegend('dp');
+                renderDPTable(step);
+            } else {
+                chartTitle.text('状态树（边标签：1=取当前物品，0=不取）');
+                updateLegend(step.algo);
+                renderTree(step);
+            }
         }
 
         function pausePlay() {
@@ -983,12 +1285,15 @@
             items = normalizeItems(parsedItems);
             capacity = Math.floor(cap);
             initCodeBox();
+            updateLegend(currentAlgo);
             pausePlay();
 
             if (currentAlgo === 'backtrack') {
                 steps = buildBacktrackingSteps(items, capacity);
-            } else {
+            } else if (currentAlgo === 'branchbound') {
                 steps = buildBranchBoundSteps(items, capacity);
+            } else {
+                steps = buildDPSteps(items, capacity);
             }
 
             stepIndex = 0;

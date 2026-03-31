@@ -161,6 +161,23 @@
             dominant-baseline: middle;
         }
 
+        .source-mark {
+            font-size: 10px;
+            fill: #7f8c8d;
+            text-anchor: end;
+            dominant-baseline: ideographic;
+            pointer-events: none;
+        }
+
+        .final-route {
+            stroke: #1b7f46;
+            stroke-width: 2.8;
+            stroke-dasharray: none;
+            stroke-linecap: round;
+            fill: none;
+            opacity: 1;
+        }
+
         .legend {
             display: flex;
             gap: 12px;
@@ -306,6 +323,18 @@
             return dp.map(row => row.slice());
         }
 
+        function createSourceMatrix() {
+            return Array.from({ length: m + 1 }, () => Array(n + 1).fill(''));
+        }
+
+        function sourceSymbol(src) {
+            if (src === 'diag') return '↖';
+            if (src === 'up') return '↑';
+            if (src === 'left') return '←';
+            if (src === 'both') return '↑←';
+            return '';
+        }
+
         function pushStep(arr, step) {
             arr.push({
                 message: step.message,
@@ -318,6 +347,7 @@
                 moveTo: step.moveTo || null,
                 lcsPartial: step.lcsPartial || '',
                 lcsFinal: step.lcsFinal || null,
+                src: cloneMatrix(step.src || createSourceMatrix()),
                 dp: cloneMatrix(step.dp)
             });
         }
@@ -325,12 +355,14 @@
         function buildTimeline() {
             timeline = [];
             const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+            const src = createSourceMatrix();
             const trace = [];
 
             pushStep(timeline, {
                 phase: 'init',
                 codeLine: null,
                 message: `初始化完成：dp 矩阵大小为 (${m + 1}) × (${n + 1})。`,
+                src,
                 dp
             });
 
@@ -338,35 +370,53 @@
                 for (let j = 1; j <= n; j++) {
                     if (sequenceA[i - 1] === sequenceB[j - 1]) {
                         dp[i][j] = dp[i - 1][j - 1] + 1;
+                        src[i][j] = 'diag';
                         pushStep(timeline, {
                             phase: 'fill',
                             codeLine: 3,
                             message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 相同，dp[${i}][${j}] = dp[${i - 1}][${j - 1}] + 1 = ${dp[i][j]}。`,
                             activeCell: { i, j },
                             fromCell: { i: i - 1, j: j - 1 },
+                            src,
                             dp
                         });
                     } else {
                         const top = dp[i - 1][j];
                         const left = dp[i][j - 1];
-                        if (top >= left) {
+                        if (top > left) {
                             dp[i][j] = top;
+                            src[i][j] = 'up';
                             pushStep(timeline, {
                                 phase: 'fill',
                                 codeLine: 5,
                                 message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 不同，取 max(上=${top}, 左=${left})，dp[${i}][${j}] = ${dp[i][j]}（来自上方）。`,
                                 activeCell: { i, j },
                                 fromCell: { i: i - 1, j },
+                                src,
                                 dp
                             });
-                        } else {
+                        } else if (left > top) {
                             dp[i][j] = left;
+                            src[i][j] = 'left';
                             pushStep(timeline, {
                                 phase: 'fill',
                                 codeLine: 5,
                                 message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 不同，取 max(上=${top}, 左=${left})，dp[${i}][${j}] = ${dp[i][j]}（来自左方）。`,
                                 activeCell: { i, j },
                                 fromCell: { i, j: j - 1 },
+                                src,
+                                dp
+                            });
+                        } else {
+                            dp[i][j] = top;
+                            src[i][j] = 'both';
+                            pushStep(timeline, {
+                                phase: 'fill',
+                                codeLine: 5,
+                                message: `A[${i - 1}] = ${sequenceA[i - 1]} 与 B[${j - 1}] = ${sequenceB[j - 1]} 不同，且上=${top} 与 左=${left} 相等，来源可为上或左。`,
+                                activeCell: { i, j },
+                                fromCell: { i: i - 1, j },
+                                src,
                                 dp
                             });
                         }
@@ -380,6 +430,7 @@
                 message: `填表结束。LCS 长度 = dp[${m}][${n}] = ${dp[m][n]}，进入回溯阶段。`,
                 activeCell: { i: m, j: n },
                 cursor: { i: m, j: n },
+                src,
                 dp
             });
 
@@ -396,6 +447,7 @@
                     cursor: { i, j },
                     trace,
                     lcsPartial: chars.slice().reverse().join(''),
+                    src,
                     dp
                 });
 
@@ -409,6 +461,7 @@
                         moveTo: { i: i - 1, j: j - 1 },
                         trace,
                         lcsPartial: chars.slice().reverse().join(''),
+                        src,
                         dp
                     });
                     i--;
@@ -425,6 +478,7 @@
                             moveTo: { i: i - 1, j },
                             trace,
                             lcsPartial: chars.slice().reverse().join(''),
+                            src,
                             dp
                         });
                         i--;
@@ -437,6 +491,7 @@
                             moveTo: { i, j: j - 1 },
                             trace,
                             lcsPartial: chars.slice().reverse().join(''),
+                            src,
                             dp
                         });
                         j--;
@@ -452,6 +507,7 @@
                 trace,
                 lcsFinal: lcs,
                 lcsPartial: lcs,
+                src,
                 dp
             });
         }
@@ -511,6 +567,15 @@
                 .text(d => state.dp[d.i][d.j]);
             values.exit().remove();
 
+            const sourceMarks = g.selectAll('text.source-mark').data(cells, d => d.key);
+            sourceMarks.enter().append('text')
+                .attr('class', 'source-mark')
+                .merge(sourceMarks)
+                .attr('x', d => toXY(d.i, d.j).x + cellSize - 4)
+                .attr('y', d => toXY(d.i, d.j).y + cellSize - 3)
+                .text(d => sourceSymbol(state.src?.[d.i]?.[d.j] || ''));
+            sourceMarks.exit().remove();
+
             const colHead = g.selectAll('text.col-head').data(d3.range(1, n + 1), d => d);
             colHead.enter().append('text').attr('class', 'header col-head')
                 .merge(colHead)
@@ -547,6 +612,25 @@
                 .attr('x2', d => toXY(d.to.i, d.to.j).x + cellSize / 2)
                 .attr('y2', d => toXY(d.to.i, d.to.j).y + cellSize / 2);
             arrows.exit().remove();
+
+            const finalRouteSegments = state.phase === 'done'
+                ? (state.trace || []).slice(0, -1).map((p, idx) => ({
+                    key: `${idx}-${p.i}-${p.j}`,
+                    from: p,
+                    to: state.trace[idx + 1]
+                }))
+                : [];
+
+            const finalArrows = g.selectAll('line.final-route').data(finalRouteSegments, d => d.key);
+            finalArrows.enter().append('line')
+                .attr('class', 'final-route')
+                .merge(finalArrows)
+                .attr('x1', d => toXY(d.from.i, d.from.j).x + cellSize / 2)
+                .attr('y1', d => toXY(d.from.i, d.from.j).y + cellSize / 2)
+                .attr('x2', d => toXY(d.to.i, d.to.j).x + cellSize / 2)
+                .attr('y2', d => toXY(d.to.i, d.to.j).y + cellSize / 2)
+                .attr('marker-end', 'url(#arrow)');
+            finalArrows.exit().remove();
 
             const info = document.getElementById('step-info');
             info.textContent = state.message;
