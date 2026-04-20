@@ -1002,27 +1002,59 @@
                 return;
             }
 
+            // Ensure DP table artifacts are removed when switching back to tree mode.
+            treeLayer.selectAll('rect.dp-cell, text.dp-value, text.dp-col-head, text.dp-row-head').remove();
+
             const maxDepth = d3.max(nodes, d => d.depth) || 0;
-            const width = Math.max(900, 260 + nodes.length * 22);
-            const height = Math.max(560, 220 + maxDepth * 95);
-            svg.attr('width', width);
-            svg.attr('height', height);
             const animMs = Math.max(220, Math.min(520, Math.floor(speed * 0.5)));
             const t = d3.transition().duration(animMs).ease(animEase);
 
+            // Parent-centered binary layout:
+            // each parent has exactly two logical child positions directly below it.
             const depthGroups = d3.group(nodes, d => d.depth);
+            const maxCountAtDepth = d3.max(Array.from(depthGroups.values(), arr => arr.length)) || 1;
+
+            const leftPad = 70;
+            const rightPad = 70;
+            const topPad = 60;
+            const levelGap = 88;
+            const leafCap = Math.pow(2, Math.min(maxDepth, 6));
+            const width = Math.max(900, leftPad + rightPad + Math.max(maxCountAtDepth, leafCap) * 38);
+            const height = Math.max(560, 220 + maxDepth * levelGap);
+            svg.attr('width', width);
+            svg.attr('height', height);
+
+            const usableW = width - leftPad - rightPad;
+            const levelY = d => topPad + d * levelGap;
+            const baseOffset = Math.max(24, usableW / 4);
             const positioned = [];
-            depthGroups.forEach((arr, depth) => {
-                arr.sort((a, b) => a.order - b.order);
-                const count = arr.length;
-                arr.forEach((node, idx) => {
-                    positioned.push({
-                        ...node,
-                        x: (width - 80) * (idx + 1) / (count + 1),
-                        y: 60 + depth * 90
+            const positionedById = new Map();
+
+            for (let depth = 0; depth <= maxDepth; depth++) {
+                const arr = (depthGroups.get(depth) || []).slice().sort((a, b) => a.order - b.order);
+                if (!arr.length) continue;
+
+                if (depth === 0) {
+                    arr.forEach(node => {
+                        const posNode = { ...node, x: width / 2, y: levelY(0) };
+                        positioned.push(posNode);
+                        positionedById.set(node.id, posNode);
                     });
+                    continue;
+                }
+
+                const offset = Math.max(16, baseOffset / Math.pow(2, depth - 1));
+                arr.forEach(node => {
+                    const parent = positionedById.get(node.parentId);
+                    const px = parent ? parent.x : width / 2;
+                    const branch = Number(node.take) === 1 ? 1 : -1;
+                    let x = px + branch * offset;
+                    x = Math.max(leftPad + 8, Math.min(width - rightPad - 8, x));
+                    const posNode = { ...node, x, y: levelY(depth) };
+                    positioned.push(posNode);
+                    positionedById.set(node.id, posNode);
                 });
-            });
+            }
 
             const mapPos = new Map(positioned.map(n => [n.id, n]));
             const edges = positioned.filter(n => n.parentId).map(n => ({
@@ -1134,6 +1166,8 @@
         }
 
         function renderDPTable(step) {
+            // Stop ongoing tree transitions before switching to DP table mode.
+            treeLayer.selectAll('*').interrupt();
             treeLayer.selectAll('*').remove();
 
             const table = step.dpTable || [];

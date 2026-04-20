@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>单源最短路径（分支限界法 & 动态规划法）</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 24px;
+            font-family: "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-panel {
+            flex: 0 0 400px;
+            margin-bottom: 0;
+        }
+
+        .chart-panel {
+            flex: 1;
+            margin-bottom: 0;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .chart-wrap {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .chart-wrap svg {
+            flex: 0 0 auto;
+            min-width: 0;
+        }
+
+        #chart {
+            flex-basis: 30%;
+        }
+
+        #tree-chart {
+            flex-basis: 70%;
+        }
+
+        #input-row,
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            padding: 5px 8px;
+            border: 1px solid #cfd3dc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #input-edges {
+            width: 430px;
+            max-width: 100%;
+        }
+
+        #input-n,
+        #input-s {
+            width: 72px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: 1px solid #1f77b4;
+            border-radius: 4px;
+            background: #1f77b4;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #166095;
+        }
+
+        #step-info {
+            min-height: 72px;
+            white-space: pre-line;
+            line-height: 1.55;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        #state-info {
+            font-size: 13px;
+            color: #444;
+            min-height: 32px;
+            margin-bottom: 8px;
+            white-space: pre-line;
+            line-height: 1.45;
+        }
+
+        #result {
+            font-size: 14px;
+            line-height: 1.55;
+            color: #145a32;
+            min-height: 52px;
+        }
+
+        #code-box {
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: block;
+            padding: 1px 4px;
+            border-radius: 3px;
+            transition: background-color 200ms ease;
+        }
+
+        .code-active {
+            background: #ffeaa7;
+        }
+
+        svg {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        #chart {
+            display: block;
+            margin: 0;
+        }
+
+        #tree-chart {
+            display: block;
+            margin: 0;
+        }
+
+        .edge {
+            stroke: #b2bec3;
+            stroke-width: 1.2;
+        }
+
+        .edge.best {
+            stroke: #2ecc71;
+            stroke-width: 2;
+        }
+
+        .edge.active {
+            stroke: #e74c3c;
+            stroke-width: 1.8;
+        }
+
+        .edge.walked {
+            stroke: #f39c12;
+            stroke-width: 1.6;
+        }
+
+        .edge-label {
+            fill: #5d6d7e;
+            font-size: 11px;
+            text-anchor: middle;
+        }
+
+        .node-circle {
+            stroke: #fff;
+            stroke-width: 1.8;
+            transition: fill 220ms ease;
+        }
+
+        .node-text {
+            fill: #fff;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-weight: 600;
+        }
+
+        .tree-link {
+            stroke: #b2bec3;
+            stroke-width: 1.4;
+            fill: none;
+        }
+
+        .tree-node-circle {
+            stroke: #fff;
+            stroke-width: 1.6;
+        }
+
+        .tree-node-text {
+            fill: #fff;
+            font-size: 10px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            font-weight: 600;
+        }
+
+        .tree-node-meta {
+            fill: #5d6d7e;
+            font-size: 10px;
+            text-anchor: middle;
+        }
+
+        .dp-cell {
+            fill: #fff;
+            stroke: #d8d8d8;
+            stroke-width: 1;
+        }
+
+        .dp-cell.active {
+            fill: #ffeaa7;
+        }
+
+        .dp-cell.from {
+            fill: #d6eaf8;
+        }
+
+        .dp-cell.path {
+            fill: #d5f5e3;
+        }
+
+        .dp-value {
+            fill: #2c3e50;
+            font-size: 13px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .dp-head {
+            fill: #333;
+            font-size: 13px;
+            font-weight: 600;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        @media (max-width: 1320px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .info-panel {
+                flex: 1 1 auto;
+                width: auto;
+                margin-bottom: 12px;
+            }
+
+            .chart-wrap {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>最短路径可视化（分支限界法 & 动态规划法）</h1>
+
+    <div class="panel" id="input-row">
+        <label>顶点数：<input id="input-n" type="number" min="2" value="8" /></label>
+        <label>起点：<input id="input-s" type="number" min="1" value="1" /></label>
+        <label>边（格式 u-v:w，逗号分隔）：<input id="input-edges" type="text"
+            value="1-2:3,1-3:5,1-4:9,2-3:2,2-5:4,3-5:3,3-6:6,4-6:2,5-7:5,6-7:1,5-8:9,7-8:3,4-8:12" /></label>
+        <label>算法：
+            <select id="algo-select">
+                <option value="branchbound">分支限界法</option>
+                <option value="dp">动态规划法</option>
+            </select>
+        </label>
+        <button id="btn-apply">应用数据</button>
+    </div>
+
+    <div class="panel" id="controls">
+        <button id="btn-play">播放</button>
+        <button id="btn-pause">暂停</button>
+        <button id="btn-prev">上一步</button>
+        <button id="btn-next">下一步</button>
+        <button id="btn-reset">重置</button>
+        <label style="font-size:14px;">速度：
+            <input id="speed" type="range" min="200" max="1800" step="200" value="900" />
+            <span id="speed-label" style="display:inline-block;width:52px;text-align:center;">900ms</span>
+        </label>
+        <span id="progress" style="font-size:13px;color:#555;"></span>
+    </div>
+
+    <div class="main-layout">
+        <div class="panel info-panel">
+            <div id="step-info">准备开始：请选择算法并应用数据。</div>
+            <div id="state-info">当前状态：-</div>
+            <div id="result">最优结果：-</div>
+            <pre id="code-box"><code id="code-content"></code></pre>
+
+            <div class="legend" id="legend-graph">
+                <span class="tag"><span class="swatch" style="background:steelblue"></span>普通顶点</span>
+                <span class="tag"><span class="swatch" style="background:#e74c3c"></span>当前展开</span>
+                <span class="tag"><span class="swatch" style="background:#3498db"></span>候选队列</span>
+                <span class="tag"><span class="swatch" style="background:#2ecc71"></span>最优路径</span>
+            </div>
+            <div class="legend" id="legend-dp" style="display:none;">
+                <span class="tag"><span class="swatch" style="background:#ffeaa7"></span>当前更新格</span>
+                <span class="tag"><span class="swatch" style="background:#d6eaf8"></span>来源格</span>
+                <span class="tag"><span class="swatch" style="background:#d5f5e3"></span>回溯路径</span>
+            </div>
+        </div>
+
+        <div class="panel chart-panel">
+            <div class="chart-wrap">
+                <svg id="chart" width="560" height="560" style="border:0"></svg>
+                <svg id="tree-chart" width="560" height="560" style="border:0"></svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bbCodeLines = [
+            'push(source, 0);',
+            'while (!isEmpty(Q)) {',
+            '    int u = popMinBound(Q);',
+            '    for (int i = 0; i < deg[u]; ++i) {',
+            '        if (g[u] + w < best[v]) push(v, g[u] + w);',
+            '    }',
+            '}'
+        ];
+
+        const dpCodeLines = [
+            'dp[0][s] = 0;',
+            'for (int k = 1; k <= n - 1; ++k) {',
+            '    dp[k][v] = dp[k - 1][v];',
+            '    for (int e = 0; e < m; ++e) {',
+            '        dp[k][v] = min(dp[k][v], dp[k - 1][u] + w);',
+            '    }',
+            '}',
+            'dist[v] = dp[n - 1][v];'
+        ];
+
+        const svg = d3.select('#chart');
+        const defs = svg.append('defs');
+        defs.append('marker')
+            .attr('id', 'edge-arrow')
+            .attr('viewBox', '0 -3 6 6')
+            .attr('refX', 6)
+            .attr('refY', 0)
+            .attr('markerWidth', 4)
+            .attr('markerHeight', 4)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-3L6,0L0,3')
+            .attr('fill', '#9aa4ad');
+        defs.append('marker')
+            .attr('id', 'best-arrow')
+            .attr('viewBox', '0 -4 8 8')
+            .attr('refX', 7)
+            .attr('refY', 0)
+            .attr('markerWidth', 4)
+            .attr('markerHeight', 4)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-4L8,0L0,4')
+            .attr('fill', '#2ecc71');
+        const g = svg.append('g').attr('transform', 'translate(20,20)');
+        const chartLayer = g.append('g').attr('class', 'chart-layer');
+        const chartTitle = g.append('text')
+            .attr('x', 6)
+            .attr('y', 18)
+            .attr('fill', '#34495e')
+            .attr('font-size', 14)
+            .attr('font-weight', 600)
+            .text('图搜索过程（分支限界法）');
+
+        const treeSvg = d3.select('#tree-chart');
+        const tg = treeSvg.append('g').attr('transform', 'translate(18,20)');
+        const treeLayer = tg.append('g').attr('class', 'tree-layer');
+        const treeTitle = tg.append('text')
+            .attr('x', 6)
+            .attr('y', 18)
+            .attr('fill', '#34495e')
+            .attr('font-size', 14)
+            .attr('font-weight', 600)
+            .text('搜索树');
+
+        let n = 6;
+        let source = 1;
+        let edges = [];
+        let steps = [];
+        let stepIndex = 0;
+        let timer = null;
+        let speed = 900;
+        let currentAlgo = 'branchbound';
+        const PANEL_HEIGHT = 560;
+
+        function getPaneSizes() {
+            const wrap = document.querySelector('.chart-wrap');
+            const panel = document.querySelector('.chart-panel');
+            const panelW = wrap ? wrap.clientWidth : (panel ? panel.clientWidth : 1120);
+            const gap = 12;
+            const inner = Math.max(680, panelW - gap);
+            const left = Math.floor(inner * 0.3);
+            const right = inner - left;
+            return { left, right };
+        }
+
+        function parseEdges(text, nodeCount) {
+            const list = (text || '').replace(/，/g, ',').split(',').map(s => s.trim()).filter(Boolean);
+            const out = [];
+            for (const item of list) {
+                const parts = item.split(':');
+                if (parts.length !== 2) return null;
+                const uv = parts[0].split('-').map(v => Number(v.trim()));
+                const w = Number(parts[1].trim());
+                if (uv.length !== 2) return null;
+                const u = Math.floor(uv[0]);
+                const v = Math.floor(uv[1]);
+                const weight = Math.floor(w);
+                if (!Number.isFinite(u) || !Number.isFinite(v) || !Number.isFinite(weight)) return null;
+                if (u < 1 || u > nodeCount || v < 1 || v > nodeCount || u === v || weight <= 0) return null;
+                out.push({ u, v, w: weight });
+            }
+            return out.length ? out : null;
+        }
+
+        function initCodeBox() {
+            const lines = currentAlgo === 'branchbound' ? bbCodeLines : dpCodeLines;
+            const codeEl = document.getElementById('code-content');
+            codeEl.innerHTML = '';
+            lines.forEach((line, idx) => {
+                const span = document.createElement('span');
+                span.className = 'code-line';
+                span.dataset.line = String(idx);
+                span.textContent = line;
+                codeEl.appendChild(span);
+            });
+        }
+
+        function highlightCode(lineList) {
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('code-active'));
+            (lineList || []).forEach(idx => {
+                const t = document.querySelector(`.code-line[data-line="${idx}"]`);
+                if (t) t.classList.add('code-active');
+            });
+        }
+
+        function updateLegend(algo) {
+            const graphLegend = document.getElementById('legend-graph');
+            const dpLegend = document.getElementById('legend-dp');
+            if (algo === 'dp') {
+                graphLegend.style.display = 'none';
+                dpLegend.style.display = 'flex';
+            } else {
+                graphLegend.style.display = 'flex';
+                dpLegend.style.display = 'none';
+            }
+        }
+
+        function buildAdj(nodeCount, edgeList) {
+            const adj = Array.from({ length: nodeCount + 1 }, () => []);
+            const rev = Array.from({ length: nodeCount + 1 }, () => []);
+            edgeList.forEach(e => {
+                adj[e.u].push({ v: e.v, w: e.w });
+                rev[e.v].push({ v: e.u, w: e.w });
+                // undirected for teaching demo
+                adj[e.v].push({ v: e.u, w: e.w });
+                rev[e.u].push({ v: e.v, w: e.w });
+            });
+            return { adj, rev };
+        }
+
+        function dijkstraLowerBound(nodeCount, rev, t) {
+            const dist = Array(nodeCount + 1).fill(Infinity);
+            const used = Array(nodeCount + 1).fill(false);
+            dist[t] = 0;
+            for (let iter = 1; iter <= nodeCount; iter++) {
+                let x = -1;
+                for (let i = 1; i <= nodeCount; i++) {
+                    if (!used[i] && (x === -1 || dist[i] < dist[x])) x = i;
+                }
+                if (x === -1 || !Number.isFinite(dist[x])) break;
+                used[x] = true;
+                rev[x].forEach(ed => {
+                    if (dist[ed.v] > dist[x] + ed.w) dist[ed.v] = dist[x] + ed.w;
+                });
+            }
+            return dist;
+        }
+
+        function clone2D(mat) {
+            return mat.map(row => row.slice());
+        }
+
+        function buildBranchBoundSteps(nodeCount, edgeList, s) {
+            const local = [];
+            const { adj } = buildAdj(nodeCount, edgeList);
+            const bestG = Array(nodeCount + 1).fill(Infinity);
+            const parent = Array(nodeCount + 1).fill(null);
+            const settled = new Set();
+            const walkedEdgeSet = new Set();
+            const Q = [];
+            const treeNodes = [];
+            const treeNodeSet = new Set();
+            const treeNodeMap = new Map();
+
+            function addTreeNode(path, gCost, bound, status) {
+                const id = path.join('-');
+                if (!treeNodeSet.has(id)) {
+                    treeNodeSet.add(id);
+                    const node = {
+                        id,
+                        parentId: path.length > 1 ? path.slice(0, -1).join('-') : null,
+                        label: path[path.length - 1],
+                        depth: path.length - 1,
+                        g: gCost,
+                        b: bound,
+                        status: status || 'normal'
+                    };
+                    treeNodes.push(node);
+                    treeNodeMap.set(id, node);
+                } else {
+                    const node = treeNodeMap.get(id);
+                    if (node) {
+                        node.g = gCost;
+                        node.b = bound;
+                        if (status) node.status = status;
+                    }
+                }
+                return id;
+            }
+
+            function currentBestEdges() {
+                const out = [];
+                for (let v = 1; v <= nodeCount; v++) {
+                    if (v !== s && parent[v] !== null) out.push({ from: parent[v], to: v });
+                }
+                return out;
+            }
+
+            function treeSnapshot(activeTreeId) {
+                return {
+                    treeNodes: treeNodes.map(x => ({ ...x })),
+                    activeTreeId: activeTreeId || null,
+                    bestTreePathIds: [],
+                    bestEdges: currentBestEdges(),
+                    distList: bestG.slice(1),
+                    walkedEdges: Array.from(walkedEdgeSet).map(k => {
+                        const p = k.split('-').map(Number);
+                        return { u: p[0], v: p[1] };
+                    })
+                };
+            }
+
+            function pushState(st) {
+                local.push({
+                    algo: 'branchbound',
+                    ...treeSnapshot(st.activeTreeId),
+                    ...st
+                });
+            }
+
+            bestG[s] = 0;
+            Q.push({ u: s, g: 0, b: 0, path: [s] });
+            const rootTreeId = addTreeNode([s], 0, 0, 'normal');
+
+            pushState({
+                info: `初始化：源点 ${s} 入队。`,
+                stateInfo: `优先队列大小：${Q.length}`,
+                codeLine: [0],
+                activeNode: s,
+                frontier: [s],
+                settled: [],
+                activeEdge: null,
+                activeTreeId: rootTreeId,
+                done: false
+            });
+
+            while (Q.length) {
+                Q.sort((a, b) => a.b - b.b);
+                const cur = Q.shift();
+                if (cur.g > bestG[cur.u]) {
+                    continue;
+                }
+
+                settled.add(cur.u);
+                pushState({
+                    info: `弹出 bound 最小结点 ${cur.u}，当前代价 g=${cur.g}。`,
+                    stateInfo: `bound=${cur.b.toFixed(2)}，队列剩余 ${Q.length}`,
+                    codeLine: [1, 2],
+                    activeNode: cur.u,
+                    frontier: [...new Set(Q.map(x => x.u))],
+                    settled: Array.from(settled),
+                    activeEdge: null,
+                    activeTreeId: cur.path.join('-'),
+                    done: false
+                });
+
+                for (const ed of adj[cur.u]) {
+                    const ng = cur.g + ed.w;
+                    const nb = ng;
+                    walkedEdgeSet.add(edgeKey(cur.u, ed.v));
+                    const nextPath = cur.path.concat(ed.v);
+                    const canImprove = ng < bestG[ed.v];
+                    const treeId = addTreeNode(nextPath, ng, nb, canImprove ? 'normal' : 'pruned');
+
+                    pushState({
+                        info: `尝试扩展边 ${cur.u} -> ${ed.v}，新代价 ${ng}。`,
+                        stateInfo: `估计代价（bound）=${nb.toFixed(2)}`,
+                        codeLine: [4],
+                        activeNode: cur.u,
+                        frontier: [...new Set(Q.map(x => x.u))],
+                        settled: Array.from(settled),
+                        activeEdge: { u: cur.u, v: ed.v },
+                        activeTreeId: treeId,
+                        done: false
+                    });
+
+                    if (canImprove) {
+                        bestG[ed.v] = ng;
+                        parent[ed.v] = cur.u;
+                        Q.push({ u: ed.v, g: ng, b: nb, path: nextPath });
+                        pushState({
+                            info: `更新结点 ${ed.v} 的最好代价，入队。`,
+                            stateInfo: `best[${ed.v}] = ${ng}，队列大小 ${Q.length}`,
+                            codeLine: [5],
+                            activeNode: ed.v,
+                            frontier: [...new Set(Q.map(x => x.u))],
+                            settled: Array.from(settled),
+                            activeEdge: { u: cur.u, v: ed.v },
+                            activeTreeId: treeId,
+                            done: false
+                        });
+                    } else {
+                        pushState({
+                            info: `剪枝：结点 ${ed.v} 被剪枝。`,
+                            stateInfo: `原因：newG=${ng}, best[${ed.v}]=${bestG[ed.v]}。`,
+                            codeLine: [5],
+                            activeNode: ed.v,
+                            frontier: [...new Set(Q.map(x => x.u))],
+                            settled: Array.from(settled),
+                            activeEdge: { u: cur.u, v: ed.v },
+                            activeTreeId: treeId,
+                            done: false
+                        });
+                    }
+                }
+            }
+
+            pushState({
+                info: '搜索结束：已得到源点到所有顶点的最短距离。',
+                stateInfo: `已固化顶点数：${settled.size}/${nodeCount}`,
+                codeLine: [7],
+                activeNode: null,
+                frontier: [],
+                settled: Array.from(settled),
+                activeEdge: null,
+                activeTreeId: null,
+                done: true
+            });
+
+            return local;
+        }
+
+        function buildDPSteps(nodeCount, edgeList, s) {
+            const local = [];
+            const undirectedEdges = [];
+            const walkedEdgeSet = new Set();
+            const parent = Array(nodeCount + 1).fill(null);
+            edgeList.forEach(e => {
+                undirectedEdges.push({ u: e.u, v: e.v, w: e.w });
+                undirectedEdges.push({ u: e.v, v: e.u, w: e.w });
+            });
+
+            const rows = nodeCount;
+            const cols = nodeCount;
+            const dp = Array.from({ length: rows }, () => Array(cols + 1).fill(Infinity));
+            dp[0][s] = 0;
+
+            function currentBestEdges() {
+                const out = [];
+                for (let v = 1; v <= nodeCount; v++) {
+                    if (v !== s && parent[v] !== null) out.push({ from: parent[v], to: v });
+                }
+                return out;
+            }
+
+            function pushState(st) {
+                local.push({
+                    algo: 'dp',
+                    ...st,
+                    dpTable: clone2D(dp),
+                    bestEdges: currentBestEdges(),
+                    distList: dp[Math.min(nodeCount - 1, Math.max(0, st.activeCell ? st.activeCell.r : 0))].slice(1),
+                    walkedEdges: Array.from(walkedEdgeSet).map(k => {
+                        const p = k.split('-').map(Number);
+                        return { u: p[0], v: p[1] };
+                    })
+                });
+            }
+
+            pushState({
+                info: `初始化：dp[0][${s}] = 0，其余为 +inf。`,
+                stateInfo: `行 0 表示使用至多 0 条边。`,
+                codeLine: [0],
+                activeCell: { r: 0, c: s },
+                activeNode: s,
+                activeEdge: null,
+                fromCells: [],
+                traceCells: [],
+                done: false
+            });
+
+            for (let k = 1; k <= nodeCount - 1; k++) {
+                for (let v = 1; v <= nodeCount; v++) dp[k][v] = dp[k - 1][v];
+
+                pushState({
+                    info: `第 ${k} 轮：先复制上一轮最优值。`,
+                    stateInfo: `现在开始按边进行松弛。`,
+                    codeLine: [1, 2],
+                    activeCell: null,
+                    activeNode: null,
+                    activeEdge: null,
+                    fromCells: [],
+                    traceCells: [],
+                    done: false
+                });
+
+                for (const ed of undirectedEdges) {
+                    if (!Number.isFinite(dp[k - 1][ed.u])) continue;
+                    const cand = dp[k - 1][ed.u] + ed.w;
+                    if (cand < dp[k][ed.v]) {
+                        walkedEdgeSet.add(edgeKey(ed.u, ed.v));
+                        dp[k][ed.v] = cand;
+                        parent[ed.v] = ed.u;
+                        pushState({
+                            info: `更新 dp[${k}][${ed.v}] = min(原值, dp[${k - 1}][${ed.u}] + ${ed.w}) = ${cand}`,
+                            stateInfo: `边 ${ed.u} -> ${ed.v} 提供更优转移。`,
+                            codeLine: [3, 4],
+                            activeCell: { r: k, c: ed.v },
+                            activeNode: ed.v,
+                            activeEdge: { u: ed.u, v: ed.v },
+                            fromCells: [{ r: k - 1, c: ed.v }, { r: k - 1, c: ed.u }],
+                            traceCells: [],
+                            done: false
+                        });
+                    }
+                }
+            }
+            const trace = [];
+            for (let v = 1; v <= nodeCount; v++) trace.push({ r: nodeCount - 1, c: v });
+
+            pushState({
+                info: 'DP 填表完成：得到源点到所有顶点的最短距离。',
+                stateInfo: '右侧展示最终 DP 结果，左侧高亮当前最短路树。',
+                codeLine: [7],
+                activeCell: null,
+                activeNode: null,
+                activeEdge: null,
+                fromCells: [],
+                traceCells: trace,
+                done: true
+            });
+
+            return local;
+        }
+
+        function graphPositions(nodeCount, width, height) {
+            const cx = width / 2;
+            const cy = height / 2 + 16;
+            const r = Math.min(220, Math.max(130, Math.min(width, height) * 0.28));
+            const pos = new Map();
+            for (let i = 1; i <= nodeCount; i++) {
+                const ang = -Math.PI / 2 + (2 * Math.PI * (i - 1)) / nodeCount;
+                pos.set(i, { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) });
+            }
+            return pos;
+        }
+
+        function edgeKey(a, b) {
+            return a < b ? `${a}-${b}` : `${b}-${a}`;
+        }
+
+        function renderGraph(step) {
+            chartLayer.selectAll('*').interrupt();
+
+            const width = getPaneSizes().left;
+            const height = PANEL_HEIGHT;
+            svg.attr('width', width);
+            svg.attr('height', height);
+            const animMs = Math.max(180, Math.min(420, Math.floor(speed * 0.45)));
+            const t = d3.transition().duration(animMs).ease(d3.easeCubicInOut);
+
+            const pos = graphPositions(n, width - 40, height - 40);
+            const bestEdgeSet = new Set();
+            const bestDirectedSet = new Set();
+            const bestEdges = step.bestEdges || [];
+            const walkedEdgeSet = new Set((step.walkedEdges || []).map(e => edgeKey(e.u, e.v)));
+            bestEdges.forEach(e => {
+                bestEdgeSet.add(edgeKey(e.from, e.to));
+                bestDirectedSet.add(`${e.from}->${e.to}`);
+            });
+
+            const usedUndirected = new Set();
+            const drawEdges = [];
+            edges.forEach(e => {
+                const k = edgeKey(e.u, e.v);
+                if (usedUndirected.has(k)) return;
+                usedUndirected.add(k);
+                drawEdges.push(e);
+            });
+
+            function edgeStroke(d) {
+                if (step.activeEdge && edgeKey(d.u, d.v) === edgeKey(step.activeEdge.u, step.activeEdge.v)) return '#e74c3c';
+                if (bestEdgeSet.has(edgeKey(d.u, d.v))) return '#2ecc71';
+                if (walkedEdgeSet.has(edgeKey(d.u, d.v))) return '#f39c12';
+                return '#b2bec3';
+            }
+
+            function edgeWidth(d) {
+                if (step.activeEdge && edgeKey(d.u, d.v) === edgeKey(step.activeEdge.u, step.activeEdge.v)) return 1.8;
+                if (bestEdgeSet.has(edgeKey(d.u, d.v))) return 2;
+                if (walkedEdgeSet.has(edgeKey(d.u, d.v))) return 1.6;
+                return 1.2;
+            }
+
+            function edgeCoords(d) {
+                const forward = bestDirectedSet.has(`${d.u}->${d.v}`);
+                const reverse = bestDirectedSet.has(`${d.v}->${d.u}`);
+                const useReverse = !!(step.done && reverse && !forward);
+                const from = useReverse ? d.v : d.u;
+                const to = useReverse ? d.u : d.v;
+                const p1 = pos.get(from);
+                const p2 = pos.get(to);
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.hypot(dx, dy) || 1;
+                const ux = dx / len;
+                const uy = dy / len;
+                const fromR = from === source ? 18 : 15;
+                const toR = to === source ? 18 : 15;
+                const startGap = fromR + 2;
+                const endGap = toR + 3;
+                return {
+                    x1: p1.x + ux * startGap,
+                    y1: p1.y + uy * startGap,
+                    x2: p2.x - ux * endGap,
+                    y2: p2.y - uy * endGap
+                };
+            }
+
+            function edgeMarker(d) {
+                if (step.done && bestEdgeSet.has(edgeKey(d.u, d.v))) return 'url(#best-arrow)';
+                return 'url(#edge-arrow)';
+            }
+
+            chartLayer.selectAll('line.edge')
+                .data(drawEdges)
+                .join(
+                    enter => enter.append('line')
+                        .attr('class', 'edge')
+                        .attr('x1', d => edgeCoords(d).x1)
+                        .attr('y1', d => edgeCoords(d).y1)
+                        .attr('x2', d => edgeCoords(d).x1)
+                        .attr('y2', d => edgeCoords(d).y1)
+                        .attr('stroke', d => edgeStroke(d))
+                        .attr('stroke-width', d => edgeWidth(d))
+                        .attr('marker-end', d => edgeMarker(d))
+                        .call(sel => sel.transition(t)
+                            .attr('x2', d => edgeCoords(d).x2)
+                            .attr('y2', d => edgeCoords(d).y2)),
+                    update => update
+                        .call(sel => sel.transition(t)
+                            .attr('x1', d => edgeCoords(d).x1)
+                            .attr('y1', d => edgeCoords(d).y1)
+                            .attr('x2', d => edgeCoords(d).x2)
+                            .attr('y2', d => edgeCoords(d).y2)
+                            .attr('stroke', d => edgeStroke(d))
+                            .attr('stroke-width', d => edgeWidth(d))
+                            .attr('marker-end', d => edgeMarker(d)))
+                );
+            const bestSegments = step.done ? bestEdges.map(e => ({ from: e.from, to: e.to })) : [];
+
+            function nodeRadius(id) {
+                return id === source ? 18 : 15;
+            }
+
+            function arrowSegment(d) {
+                const p1 = pos.get(d.from);
+                const p2 = pos.get(d.to);
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const len = Math.hypot(dx, dy) || 1;
+                const ux = dx / len;
+                const uy = dy / len;
+                const startGap = nodeRadius(d.from) + 2;
+                const endGap = nodeRadius(d.to) + 2;
+                return {
+                    x1: p1.x + ux * startGap,
+                    y1: p1.y + uy * startGap,
+                    x2: p2.x - ux * endGap,
+                    y2: p2.y - uy * endGap
+                };
+            }
+
+            chartLayer.selectAll('line.best-arrow-edge')
+                .data(bestSegments, d => `${d.from}->${d.to}`)
+                .join(
+                    enter => enter.append('line')
+                        .attr('class', 'best-arrow-edge')
+                        .attr('x1', d => arrowSegment(d).x1)
+                        .attr('y1', d => arrowSegment(d).y1)
+                        .attr('x2', d => arrowSegment(d).x1)
+                        .attr('y2', d => arrowSegment(d).y1)
+                        .attr('stroke', '#2ecc71')
+                        .attr('stroke-width', 2.2)
+                        .attr('stroke-linecap', 'round')
+                        .attr('marker-end', 'url(#best-arrow)')
+                        .call(sel => sel.transition(t)
+                            .attr('x2', d => arrowSegment(d).x2)
+                            .attr('y2', d => arrowSegment(d).y2)),
+                    update => update
+                        .call(sel => sel.transition(t)
+                            .attr('x1', d => arrowSegment(d).x1)
+                            .attr('y1', d => arrowSegment(d).y1)
+                            .attr('x2', d => arrowSegment(d).x2)
+                            .attr('y2', d => arrowSegment(d).y2)
+                            .attr('marker-end', 'url(#best-arrow)')),
+                    exit => exit.remove()
+                );
+
+            chartLayer.selectAll('text.edge-label')
+                .data(drawEdges)
+                .join('text')
+                .attr('class', 'edge-label')
+                .attr('x', d => (pos.get(d.u).x + pos.get(d.v).x) / 2)
+                .attr('y', d => (pos.get(d.u).y + pos.get(d.v).y) / 2 - 4)
+                .text(d => d.w);
+
+            const nodeData = d3.range(1, n + 1).map(id => ({ id }));
+
+            function nodeColor(id) {
+                if (id === step.activeNode) return '#e74c3c';
+                if (step.done && (id === source || bestEdges.some(e => e.to === id))) return '#2ecc71';
+                if ((step.frontier || []).includes(id)) return '#3498db';
+                if ((step.settled || []).includes(id)) return '#95a5a6';
+                return 'steelblue';
+            }
+
+            const nodeG = chartLayer.selectAll('g.node')
+                .data(nodeData)
+                .join(
+                    enter => {
+                        const ng = enter.append('g')
+                            .attr('class', 'node')
+                            .attr('transform', d => `translate(${pos.get(d.id).x},${pos.get(d.id).y})`)
+                            .attr('opacity', 0);
+
+                        ng.append('circle')
+                            .attr('class', 'node-circle')
+                            .attr('r', 0)
+                            .attr('fill', d => nodeColor(d.id));
+
+                        ng.append('text')
+                            .attr('class', 'node-text')
+                            .attr('dy', '0.3em')
+                            .text(d => d.id);
+
+                        return ng.call(sel => sel.transition(t).attr('opacity', 1));
+                    },
+                    update => update
+                        .call(sel => sel.transition(t)
+                            .attr('transform', d => `translate(${pos.get(d.id).x},${pos.get(d.id).y})`))
+                );
+
+            nodeG.select('circle.node-circle')
+                .transition(t)
+                .attr('r', d => (d.id === source ? 18 : 15))
+                .attr('fill', d => nodeColor(d.id));
+        }
+
+        function renderDP(step) {
+            treeLayer.selectAll('*').interrupt();
+            treeLayer.selectAll('*').remove();
+            treeTitle.text('DP 表（右侧）');
+
+            const table = step.dpTable || [];
+            const rows = table.length;
+            const cols = rows ? table[0].length - 1 : 0;
+            if (!rows || !cols) return;
+
+            const rightWidth = getPaneSizes().right;
+            const cellW = Math.max(36, Math.min(52, Math.floor((rightWidth - 72) / Math.max(1, cols))));
+            const cellH = 38;
+            const startY = 58;
+            const tableWidth = cols * cellW;
+            const sidePadding = 20;
+            const width = rightWidth;
+            const height = PANEL_HEIGHT;
+            treeSvg.attr('width', width);
+            treeSvg.attr('height', height);
+
+            const startX = Math.floor((width - tableWidth) / 2);
+
+            const traceSet = new Set((step.traceCells || []).map(p => `${p.r}-${p.c}`));
+            const fromSet = new Set((step.fromCells || []).map(p => `${p.r}-${p.c}`));
+            const activeKey = step.activeCell ? `${step.activeCell.r}-${step.activeCell.c}` : null;
+
+            const cells = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 1; c <= cols; c++) {
+                    cells.push({ r, c, key: `${r}-${c}` });
+                }
+            }
+
+            treeLayer.selectAll('rect.dp-cell')
+                .data(cells, d => d.key)
+                .join('rect')
+                .attr('x', d => startX + (d.c - 1) * cellW)
+                .attr('y', d => startY + d.r * cellH)
+                .attr('width', cellW)
+                .attr('height', cellH)
+                .attr('class', d => {
+                    const cls = ['dp-cell'];
+                    if (traceSet.has(d.key)) cls.push('path');
+                    if (fromSet.has(d.key)) cls.push('from');
+                    if (activeKey && d.key === activeKey) cls.push('active');
+                    return cls.join(' ');
+                });
+
+            treeLayer.selectAll('text.dp-value')
+                .data(cells, d => d.key)
+                .join('text')
+                .attr('class', 'dp-value')
+                .attr('x', d => startX + (d.c - 1) * cellW + cellW / 2)
+                .attr('y', d => startY + d.r * cellH + cellH / 2)
+                .text(d => Number.isFinite(table[d.r][d.c]) ? table[d.r][d.c] : 'inf');
+
+            treeLayer.selectAll('text.dp-col-head')
+                .data(d3.range(1, cols + 1))
+                .join('text')
+                .attr('class', 'dp-head dp-col-head')
+                .attr('x', d => startX + (d - 1) * cellW + cellW / 2)
+                .attr('y', startY - 18)
+                .text(d => `v${d}`);
+
+            treeLayer.selectAll('text.dp-row-head')
+                .data(d3.range(rows))
+                .join('text')
+                .attr('class', 'dp-head dp-row-head')
+                .attr('x', startX - 28)
+                .attr('y', d => startY + d * cellH + cellH / 2)
+                .text(d => `k=${d}`);
+        }
+
+        function renderSearchTree(step) {
+            treeLayer.selectAll('*').interrupt();
+            treeLayer.selectAll('*').remove();
+            treeSvg.attr('width', getPaneSizes().right);
+
+            if (step.algo !== 'branchbound') {
+                treeTitle.text('搜索树（DP 模式隐藏）');
+                return;
+            }
+
+            treeTitle.text('搜索树');
+            const nodes = step.treeNodes || [];
+            if (!nodes.length) return;
+
+            const paneW = +treeSvg.attr('width');
+            const maxDepth = d3.max(nodes, d => d.depth) || 0;
+            const leftPad = 28;
+            const rightPad = 28;
+            const topPad = 56;
+            const levelGap = 86;
+            const bottomPad = 92;
+            const treeRenderHeight = Math.max(420, topPad + maxDepth * levelGap + bottomPad);
+            treeSvg.attr('height', treeRenderHeight);
+            const usableW = Math.max(120, paneW - leftPad - rightPad);
+
+            const depthGroups = d3.group(nodes, d => d.depth);
+            const childrenMap = new Map();
+            nodes.forEach(nd => {
+                if (!nd.parentId) return;
+                if (!childrenMap.has(nd.parentId)) childrenMap.set(nd.parentId, []);
+                childrenMap.get(nd.parentId).push(nd);
+            });
+
+            childrenMap.forEach(arr => {
+                arr.sort((a, b) => {
+                    if (a.label !== b.label) return a.label - b.label;
+                    return a.id.localeCompare(b.id);
+                });
+            });
+
+            const positioned = [];
+            const positionedById = new Map();
+            const sortedDepths = Array.from(depthGroups.keys()).sort((a, b) => a - b);
+
+            for (const depth of sortedDepths) {
+                const arr = (depthGroups.get(depth) || []).slice().sort((a, b) => a.id.localeCompare(b.id));
+                if (!arr.length) continue;
+
+                if (depth === 0) {
+                    arr.forEach(nd => {
+                        const p = { ...nd, x: paneW / 2, y: topPad };
+                        positioned.push(p);
+                        positionedById.set(nd.id, p);
+                    });
+                    continue;
+                }
+
+                const baseOffset = Math.max(24, usableW / 4 / Math.pow(2, Math.max(0, depth - 1)));
+
+                arr.forEach(nd => {
+                    const parent = positionedById.get(nd.parentId);
+                    const px = parent ? parent.x : paneW / 2;
+                    const siblings = childrenMap.get(nd.parentId) || [nd];
+                    const idx = Math.max(0, siblings.findIndex(x => x.id === nd.id));
+                    const cnt = siblings.length;
+
+                    const spread = cnt === 1 ? 0 : (idx - (cnt - 1) / 2);
+                    const siblingGap = Math.max(18, baseOffset * 0.85);
+                    let x = px + spread * siblingGap;
+                    x = Math.max(leftPad, Math.min(paneW - rightPad, x));
+
+                    const y = topPad + depth * levelGap;
+                    const p = { ...nd, x, y };
+                    positioned.push(p);
+                    positionedById.set(nd.id, p);
+                });
+            }
+
+            // Resolve overlaps per depth level (left-to-right minimal gap).
+            const minGap = 28;
+            for (const depth of sortedDepths) {
+                const levelNodes = positioned
+                    .filter(nd => nd.depth === depth)
+                    .sort((a, b) => a.x - b.x);
+                if (!levelNodes.length) continue;
+
+                for (let i = 1; i < levelNodes.length; i++) {
+                    const need = levelNodes[i - 1].x + minGap;
+                    if (levelNodes[i].x < need) levelNodes[i].x = need;
+                }
+
+                let levelMin = d3.min(levelNodes, d => d.x);
+                let levelMax = d3.max(levelNodes, d => d.x);
+                if (levelMax > paneW - rightPad) {
+                    const shiftLeft = levelMax - (paneW - rightPad);
+                    levelNodes.forEach(nd => { nd.x -= shiftLeft; });
+                }
+                levelMin = d3.min(levelNodes, d => d.x);
+                if (levelMin < leftPad) {
+                    const shiftRight = leftPad - levelMin;
+                    levelNodes.forEach(nd => { nd.x += shiftRight; });
+                }
+            }
+
+            // If still too wide, compress horizontally around center to fit full tree.
+            if (positioned.length) {
+                const spanMin = d3.min(positioned, d => d.x);
+                const spanMax = d3.max(positioned, d => d.x);
+                const span = Math.max(1, spanMax - spanMin);
+                if (span > usableW) {
+                    const scale = usableW / span;
+                    const cx = paneW / 2;
+                    positioned.forEach(nd => {
+                        nd.x = cx + (nd.x - cx) * scale;
+                    });
+                }
+            }
+
+            // Center the whole subtree in the right pane by its actual bounding box.
+            if (positioned.length) {
+                const minX = d3.min(positioned, d => d.x);
+                const maxX = d3.max(positioned, d => d.x);
+                const currentCenter = (minX + maxX) / 2;
+                const targetCenter = paneW / 2;
+                let shift = targetCenter - currentCenter;
+
+                let shiftedMin = minX + shift;
+                let shiftedMax = maxX + shift;
+                if (shiftedMin < leftPad) shift += (leftPad - shiftedMin);
+                shiftedMin = minX + shift;
+                shiftedMax = maxX + shift;
+                if (shiftedMax > paneW - rightPad) shift -= (shiftedMax - (paneW - rightPad));
+
+                positioned.forEach(nd => {
+                    nd.x += shift;
+                });
+            }
+
+            const centeredById = new Map(positioned.map(nd => [nd.id, nd]));
+
+            const edges = positioned
+                .filter(nd => nd.parentId && centeredById.has(nd.parentId))
+                .map(nd => ({ source: centeredById.get(nd.parentId), target: nd }));
+
+            const bestSet = new Set(step.bestTreePathIds || []);
+            const activeId = step.activeTreeId || null;
+
+            function nodeFill(d) {
+                if (d.id === activeId) return '#e74c3c';
+                if (bestSet.has(d.id)) return '#2ecc71';
+                if (d.status === 'pruned') return '#95a5a6';
+                return 'steelblue';
+            }
+
+            treeLayer.selectAll('line.tree-link')
+                .data(edges, d => d.target.id)
+                .join('line')
+                .attr('class', 'tree-link')
+                .attr('x1', d => d.source.x)
+                .attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x)
+                .attr('y2', d => d.target.y);
+
+            const ng = treeLayer.selectAll('g.tree-node')
+                .data(positioned, d => d.id)
+                .join('g')
+                .attr('class', 'tree-node')
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+
+            ng.append('circle')
+                .attr('class', 'tree-node-circle')
+                .attr('r', 12)
+                .attr('fill', d => nodeFill(d));
+
+            ng.append('text')
+                .attr('class', 'tree-node-text')
+                .attr('dy', '0.3em')
+                .text(d => d.label);
+
+            ng.append('text')
+                .attr('class', 'tree-node-meta')
+                .attr('dy', '2.4em')
+                .text(d => `g=${Number.isFinite(d.g) ? d.g : 'inf'}`);
+        }
+
+        function renderResult(step) {
+            const resultEl = document.getElementById('result');
+            const distList = step.distList || [];
+            if (!distList.length) {
+                resultEl.textContent = '源点到各点最短距离：-';
+                return;
+            }
+            const lines = distList.map((d, i) => {
+                const txt = Number.isFinite(d) ? d : '∞';
+                return `${source} → ${i + 1}: ${txt}`;
+            });
+            const treeText = (step.bestEdges || []).length
+                ? (step.bestEdges || []).map(e => `${e.from}->${e.to}`).join(', ')
+                : '-';
+            resultEl.textContent = `源点到各点最短距离：\n${lines.join('\n')}\n最短路树边：${treeText}`;
+        }
+
+        function renderStep() {
+            if (!steps.length) return;
+            const step = steps[stepIndex];
+            document.getElementById('step-info').textContent = step.info || '-';
+            document.getElementById('state-info').textContent = step.stateInfo || '当前状态：-';
+            document.getElementById('progress').textContent = `${stepIndex + 1} / ${steps.length}`;
+            highlightCode(step.codeLine || []);
+            renderResult(step);
+
+            // Left pane is always graph.
+            renderGraph(step);
+
+            if (step.algo === 'dp') {
+                chartTitle.text('图结构（动态规划法）');
+                updateLegend('dp');
+                renderDP(step);
+            } else {
+                chartTitle.text('图搜索过程（分支限界法）');
+                updateLegend('branchbound');
+                renderSearchTree(step);
+            }
+        }
+
+        function pausePlay() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        function play() {
+            pausePlay();
+            timer = setInterval(() => {
+                if (stepIndex < steps.length - 1) {
+                    stepIndex += 1;
+                    renderStep();
+                } else {
+                    pausePlay();
+                }
+            }, speed);
+        }
+
+        function resetToStart() {
+            pausePlay();
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function applyData() {
+            const nodeCount = Math.floor(Number(document.getElementById('input-n').value));
+            const s = Math.floor(Number(document.getElementById('input-s').value));
+            const edgeList = parseEdges(document.getElementById('input-edges').value, nodeCount);
+            currentAlgo = document.getElementById('algo-select').value;
+
+            if (!Number.isFinite(nodeCount) || nodeCount < 2 || !Number.isFinite(s) || s < 1 || s > nodeCount || !edgeList) {
+                alert('输入格式错误：请检查顶点数、源点和边格式（如 1-2:7,2-3:4）。');
+                return;
+            }
+
+            n = nodeCount;
+            source = s;
+            edges = edgeList;
+
+            initCodeBox();
+            updateLegend(currentAlgo);
+            pausePlay();
+
+            if (currentAlgo === 'branchbound') {
+                steps = buildBranchBoundSteps(n, edges, source);
+            } else {
+                steps = buildDPSteps(n, edges, source);
+            }
+
+            stepIndex = 0;
+            renderStep();
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-apply').addEventListener('click', applyData);
+            document.getElementById('btn-play').addEventListener('click', play);
+            document.getElementById('btn-pause').addEventListener('click', pausePlay);
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.max(0, stepIndex - 1);
+                renderStep();
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                pausePlay();
+                stepIndex = Math.min(steps.length - 1, stepIndex + 1);
+                renderStep();
+            });
+            document.getElementById('btn-reset').addEventListener('click', resetToStart);
+
+            document.getElementById('algo-select').addEventListener('change', () => {
+                applyData();
+            });
+
+            const speedInput = document.getElementById('speed');
+            speedInput.addEventListener('input', () => {
+                speed = Number(speedInput.value);
+                document.getElementById('speed-label').textContent = `${speed}ms`;
+                if (timer) play();
+            });
+        }
+
+        function init() {
+            speed = Number(document.getElementById('speed').value);
+            document.getElementById('speed-label').textContent = `${speed}ms`;
+            bindEvents();
+            applyData();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
